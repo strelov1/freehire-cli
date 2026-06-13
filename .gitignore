@@ -1,0 +1,4 @@
+# Built binaries
+/freehire
+/bin/
+*.exe
