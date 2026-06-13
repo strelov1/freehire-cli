@@ -1,4 +1,5 @@
 # Built binaries
 /freehire
 /bin/
+/dist/
 *.exe

@@ -3,15 +3,18 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/strelov1/freehire-cli/internal/client"
 )
 
 func newSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Search jobs by keyword",
+		Short: "Search jobs by keyword, with optional facet filters",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, _, err := authedClient(cmd)
@@ -20,7 +23,24 @@ func newSearchCmd() *cobra.Command {
 			}
 			limit, _ := cmd.Flags().GetInt("limit")
 			offset, _ := cmd.Flags().GetInt("offset")
-			res, err := c.Search(cmd.Context(), strings.Join(args, " "), limit, offset)
+
+			facets := url.Values{}
+			if remote, _ := cmd.Flags().GetBool("remote"); remote {
+				facets.Set("work_mode", "remote")
+			}
+			if regions, _ := cmd.Flags().GetStringArray("region"); len(regions) > 0 {
+				facets["regions"] = regions
+			}
+			if companies, _ := cmd.Flags().GetStringArray("company"); len(companies) > 0 {
+				facets["company_slug"] = companies
+			}
+
+			res, err := c.Search(cmd.Context(), client.SearchParams{
+				Query:  strings.Join(args, " "),
+				Limit:  limit,
+				Offset: offset,
+				Facets: facets,
+			})
 			if err != nil {
 				return err
 			}
@@ -43,6 +63,9 @@ func newSearchCmd() *cobra.Command {
 	}
 	cmd.Flags().Int("limit", 20, "maximum results")
 	cmd.Flags().Int("offset", 0, "results offset for paging")
+	cmd.Flags().Bool("remote", false, "only remote jobs (work_mode=remote)")
+	cmd.Flags().StringArray("region", nil, "filter by region: global|ru|cis|central_asia|eu|us (repeatable)")
+	cmd.Flags().StringArray("company", nil, "filter by company slug (repeatable)")
 	return cmd
 }
 
@@ -105,4 +128,112 @@ func trunc(s string, n int) string {
 		return s
 	}
 	return s[:n-1] + "…"
+}
+
+func newSaveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "save <slug>",
+		Short: "Bookmark a job for later",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, _, err := authedClient(cmd)
+			if err != nil {
+				return err
+			}
+			data, err := c.Save(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			if wantJSON(cmd) {
+				printJSON(cmd, data)
+				return nil
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Saved: %s\n", args[0])
+			return nil
+		},
+	}
+}
+
+func newUnsaveCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unsave <slug>",
+		Short: "Remove a job's bookmark",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, _, err := authedClient(cmd)
+			if err != nil {
+				return err
+			}
+			data, err := c.Unsave(cmd.Context(), args[0])
+			if err != nil {
+				return err
+			}
+			if wantJSON(cmd) {
+				printJSON(cmd, data)
+				return nil
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Unsaved: %s\n", args[0])
+			return nil
+		},
+	}
+}
+
+func newMyCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "my",
+		Short: "List your tracked jobs (viewed / saved / applied)",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			c, _, err := authedClient(cmd)
+			if err != nil {
+				return err
+			}
+			filter, _ := cmd.Flags().GetString("filter")
+			limit, _ := cmd.Flags().GetInt("limit")
+			offset, _ := cmd.Flags().GetInt("offset")
+			res, err := c.MyJobs(cmd.Context(), filter, limit, offset)
+			if err != nil {
+				return err
+			}
+			if wantJSON(cmd) {
+				printJSON(cmd, res.Data)
+				return nil
+			}
+			var rows []myJobRow
+			if err := json.Unmarshal(res.Data, &rows); err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			for _, r := range rows {
+				fmt.Fprintf(out, "%-40s  %-20s  %-9s  %s\n",
+					trunc(r.Job.Title, 40), trunc(r.Job.Company, 20), r.state(), r.Job.PublicSlug)
+			}
+			fmt.Fprintf(out, "\n%d of %d shown\n", len(rows), res.Total)
+			return nil
+		},
+	}
+	cmd.Flags().String("filter", "all", "all | viewed | saved | applied")
+	cmd.Flags().Int("limit", 20, "maximum results")
+	cmd.Flags().Int("offset", 0, "results offset for paging")
+	return cmd
+}
+
+// myJobRow is one row of the `my` listing: the job plus the caller's interaction
+// timestamps.
+type myJobRow struct {
+	Job       jobRow  `json:"job"`
+	SavedAt   *string `json:"saved_at"`
+	AppliedAt *string `json:"applied_at"`
+}
+
+// state renders the interaction as a short tag for the human listing.
+func (r myJobRow) state() string {
+	switch {
+	case r.AppliedAt != nil:
+		return "applied"
+	case r.SavedAt != nil:
+		return "saved"
+	default:
+		return "viewed"
+	}
 }

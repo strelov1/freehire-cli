@@ -44,11 +44,20 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("api error %d", e.Status)
 }
 
-// SearchResult is a page of search hits: the raw `data` array plus the total
-// match count from `meta`.
-type SearchResult struct {
+// Page is a slice of list results: the raw `data` array plus the total match
+// count from `meta`. Returned by Search and MyJobs.
+type Page struct {
 	Data  json.RawMessage
 	Total int
+}
+
+// SearchParams are the inputs to a job search: query text, pagination, and
+// optional facet filters (work_mode, regions, company_slug, …) as query values.
+type SearchParams struct {
+	Query  string
+	Limit  int
+	Offset int
+	Facets url.Values
 }
 
 // envelope is the shared API response wrapper: {data, meta, error}.
@@ -67,18 +76,51 @@ func (c *Client) Me(ctx context.Context) (json.RawMessage, error) {
 	return env.Data, err
 }
 
-// Search runs a keyword job search (GET /jobs/search).
-func (c *Client) Search(ctx context.Context, query string, limit, offset int) (SearchResult, error) {
+// Search runs a keyword job search with optional facet filters (GET /jobs/search).
+func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	q := url.Values{}
-	q.Set("q", query)
-	q.Set("limit", strconv.Itoa(limit))
-	q.Set("offset", strconv.Itoa(offset))
+	for k, vs := range p.Facets {
+		for _, v := range vs {
+			q.Add(k, v)
+		}
+	}
+	q.Set("q", p.Query)
+	q.Set("limit", strconv.Itoa(p.Limit))
+	q.Set("offset", strconv.Itoa(p.Offset))
 	q.Set("semantic_ratio", "0") // keyword search, matching the web client
 	env, err := c.do(ctx, http.MethodGet, "/api/v1/jobs/search?"+q.Encode(), nil)
 	if err != nil {
-		return SearchResult{}, err
+		return Page{}, err
 	}
-	return SearchResult{Data: env.Data, Total: env.Meta.Total}, nil
+	return Page{Data: env.Data, Total: env.Meta.Total}, nil
+}
+
+// Save bookmarks a job (POST /jobs/:slug/save).
+func (c *Client) Save(ctx context.Context, slug string) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodPost, "/api/v1/jobs/"+url.PathEscape(slug)+"/save", nil)
+	return env.Data, err
+}
+
+// Unsave removes a job's bookmark (DELETE /jobs/:slug/save).
+func (c *Client) Unsave(ctx context.Context, slug string) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodDelete, "/api/v1/jobs/"+url.PathEscape(slug)+"/save", nil)
+	return env.Data, err
+}
+
+// MyJobs lists the caller's tracked jobs (GET /me/jobs), filtered by
+// all/viewed/saved/applied.
+func (c *Client) MyJobs(ctx context.Context, filter string, limit, offset int) (Page, error) {
+	q := url.Values{}
+	if filter != "" {
+		q.Set("filter", filter)
+	}
+	q.Set("limit", strconv.Itoa(limit))
+	q.Set("offset", strconv.Itoa(offset))
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/me/jobs?"+q.Encode(), nil)
+	if err != nil {
+		return Page{}, err
+	}
+	return Page{Data: env.Data, Total: env.Meta.Total}, nil
 }
 
 // GetJob fetches a single job by its public slug (GET /jobs/:slug).

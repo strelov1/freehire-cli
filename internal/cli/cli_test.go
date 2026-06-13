@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -128,5 +129,65 @@ func TestSearchWithoutTokenErrors(t *testing.T) {
 	t.Setenv("FREEHIRE_TOKEN", "")
 	if _, err := run(t, "search", "golang"); err == nil {
 		t.Error("expected an error when no token is configured")
+	}
+}
+
+func TestSearchFiltersMapToFacets(t *testing.T) {
+	var got url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		got = r.URL.Query()
+		w.Write([]byte(`{"data":[],"meta":{"total":0}}`))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	_, err := run(t, "search", "golang",
+		"--remote", "--region", "eu", "--region", "us", "--company", "acme",
+		"--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if got.Get("work_mode") != "remote" {
+		t.Errorf("work_mode = %q, want remote", got.Get("work_mode"))
+	}
+	if r := got["regions"]; len(r) != 2 || r[0] != "eu" || r[1] != "us" {
+		t.Errorf("regions = %v, want [eu us]", r)
+	}
+	if got.Get("company_slug") != "acme" {
+		t.Errorf("company_slug = %q, want acme", got.Get("company_slug"))
+	}
+}
+
+func TestSaveAndMy(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev/save", func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"data":{"job_id":1,"saved_at":"2026-06-13T00:00:00Z"}}`))
+	})
+	mux.HandleFunc("/api/v1/me/jobs", func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("filter") != "saved" {
+			t.Errorf("filter = %q, want saved", r.URL.Query().Get("filter"))
+		}
+		w.Write([]byte(`{"data":[{"job":{"public_slug":"go-dev","title":"Go Dev","company":"Acme"},"saved_at":"2026-06-13T00:00:00Z","applied_at":null}],"meta":{"total":1}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "save", "go-dev", "--api-url", srv.URL)
+	if err != nil || !strings.Contains(out, "Saved: go-dev") {
+		t.Errorf("save: err=%v out=%q", err, out)
+	}
+	out, err = run(t, "my", "--filter", "saved", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("my: %v", err)
+	}
+	if !strings.Contains(out, "Go Dev") || !strings.Contains(out, "go-dev") {
+		t.Errorf("my out = %q", out)
 	}
 }

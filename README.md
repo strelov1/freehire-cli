@@ -7,6 +7,14 @@ in `~/.freehire/creds.json`.
 
 ## Install
 
+**curl** (prebuilt binary, no Go needed):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/strelov1/freehire-cli/main/install.sh | sh
+```
+
+**Go:**
+
 ```bash
 go install github.com/strelov1/freehire-cli/cmd/freehire@latest   # installs the `freehire` binary
 ```
@@ -28,9 +36,13 @@ never stored. Omit `--token` to be prompted on stdin.
 ## Use
 
 ```bash
-freehire search "golang remote"            # list matching jobs (title · company · location · slug)
-freehire job <slug>                        # show a job's full content
-freehire apply <slug>                      # mark a job applied for your account
+freehire search "golang"                                       # list matching jobs (title · company · location · slug)
+freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
+freehire job <slug>                                            # show a job's full content
+freehire apply <slug>                                          # mark a job applied for your account
+freehire save <slug>                                           # bookmark a job for later
+freehire unsave <slug>                                         # remove a bookmark
+freehire my --filter applied                                   # list your tracked jobs (all | viewed | saved | applied)
 ```
 
 ## For agents
