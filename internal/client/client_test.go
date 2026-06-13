@@ -173,3 +173,61 @@ func TestClient_SaveUnsaveMyJobs(t *testing.T) {
 		t.Errorf("total = %d, want 1", res.Total)
 	}
 }
+
+func TestClient_Track(t *testing.T) {
+	var gotMethod, gotCT string
+	var gotBody map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev/track", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotCT = r.Header.Get("Content-Type")
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Write([]byte(`{"data":{"job_id":1,"stage":"interview","notes":null}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "good", srv.Client())
+
+	stage := "interview"
+	data, err := c.Track(context.Background(), "go-dev", TrackParams{Stage: &stage})
+	if err != nil {
+		t.Fatalf("Track: %v", err)
+	}
+	if gotMethod != http.MethodPatch {
+		t.Errorf("method = %s, want PATCH", gotMethod)
+	}
+	if gotCT != "application/json" {
+		t.Errorf("content-type = %q, want application/json", gotCT)
+	}
+	if gotBody["stage"] != "interview" {
+		t.Errorf("body stage = %v, want interview", gotBody["stage"])
+	}
+	// A nil field must be omitted so the server leaves that column unchanged.
+	if _, ok := gotBody["notes"]; ok {
+		t.Errorf("notes should be omitted when nil, body = %v", gotBody)
+	}
+	if !strings.Contains(string(data), "interview") {
+		t.Errorf("data = %s", data)
+	}
+}
+
+func TestClient_GetCompany(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/companies/acme", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("method = %s, want GET", r.Method)
+		}
+		w.Write([]byte(`{"data":{"company":{"slug":"acme","name":"Acme"},"jobs":[{"public_slug":"go-dev","title":"Go Dev"}]}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "good", srv.Client())
+
+	data, err := c.GetCompany(context.Background(), "acme")
+	if err != nil {
+		t.Fatalf("GetCompany: %v", err)
+	}
+	if !strings.Contains(string(data), `"name":"Acme"`) || !strings.Contains(string(data), "go-dev") {
+		t.Errorf("company data = %s", data)
+	}
+}

@@ -7,12 +7,14 @@ in `~/.freehire/creds.json`.
 ## Goals / Non-Goals
 
 **Goals:** a single static binary (`freehire`) any agent can run; authenticate
-with an `fhk_…` API key; the core agent loop — `search` jobs, fetch a job's
-content (`job`), and `apply`; persist the token at `~/.freehire/creds.json`;
-machine-readable `--json` output for agents.
+with an `fhk_…` API key; the core agent loop — `search` jobs (with facet
+filters), fetch a job's content (`job`), browse a `company`, and `apply`; track
+applications (`save`, `stage`, `note`, `my`); persist the token at
+`~/.freehire/creds.json`; machine-readable `--json` output for agents.
 
-**Non-Goals (YAGNI):** save/unsave, `my` listing, companies (easy to add later);
-shell-completion docs; goreleaser/homebrew; semantic-search flags.
+**Non-Goals (YAGNI):** shell-completion docs; goreleaser/homebrew;
+semantic-search flags; client-side stage validation (the API is the source of
+truth — the CLI only lists the vocabulary in help).
 
 ## Layout
 
@@ -20,8 +22,10 @@ shell-completion docs; goreleaser/homebrew; semantic-search flags.
 cmd/freehire/main.go    # thin entry: cli.Execute() (so `go install` yields `freehire`)
 internal/
   config/   creds.json load/save (0600) + env/default resolution
-  client/   API client over net/http: Me, Search, GetJob, Apply (+ APIError)
-  cli/      cobra commands: root, auth (login/status/logout), search, job, apply
+  client/   API client over net/http: Me, Search, GetJob, GetCompany, Apply,
+            Save, Unsave, MyJobs, Track (+ APIError)
+  cli/      cobra commands: root, auth (login/status/logout), search, job,
+            company, apply, save, unsave, stage, note, my
 DESIGN.md, README.md, .github/workflows/ci.yml
 ```
 
@@ -43,9 +47,12 @@ DESIGN.md, README.md, .github/workflows/ci.yml
 - Methods return the raw `data` (so `--json` is faithful to the API) and the cli
   decodes typed structs for human output:
   - `Me` → `GET /auth/me` (whoami; works by key).
-  - `Search(q, limit, offset)` → `GET /jobs/search` (+ `meta.total`).
-  - `GetJob(slug)` → `GET /jobs/:slug`.
-  - `Apply(slug)` → `POST /jobs/:slug/apply`.
+  - `Search(q, limit, offset, facets)` → `GET /jobs/search` (+ `meta.total`).
+  - `GetJob(slug)` → `GET /jobs/:slug`; `GetCompany(slug)` → `GET /companies/:slug`.
+  - `Apply`/`Save(slug)` → `POST`; `Unsave(slug)` → `DELETE /jobs/:slug/{apply,save}`.
+  - `MyJobs(filter, limit, offset)` → `GET /me/jobs` (+ `meta.total`).
+  - `Track(slug, {stage?, notes?})` → `PATCH /jobs/:slug/track` (partial update;
+    a nil field is omitted so the server leaves that column unchanged).
 
 ## Commands (`cli`, cobra)
 
@@ -54,11 +61,16 @@ DESIGN.md, README.md, .github/workflows/ci.yml
   validates with `Me`; writes creds; prints `Logged in as <email>`.
   `auth status` — `Me` → `Authenticated as <email> @ <api_url>` or not.
   `auth logout` — removes creds.
-- `freehire search <query> [--limit --offset]` — table (title · company ·
-  location · slug) or raw `--json`.
-- `freehire job <slug>` — job content (title, company, location, url,
+- `freehire search <query> [--limit --offset --remote --region --company]` —
+  table (title · company · location · slug) or raw `--json`.
+- `freehire job <slug>` — job content (title, company + slug, location, url,
   description) or raw `--json`.
+- `freehire company <slug>` — the company and its open jobs.
 - `freehire apply <slug>` — marks applied; `Marked applied: <slug>` or raw.
+- `freehire save|unsave <slug>` — bookmark / remove a bookmark.
+- `freehire stage <slug> <stage>` — set application stage (server-validated).
+- `freehire note <slug> <text>…` — attach a free-text note (trailing args joined).
+- `freehire my [--filter all|viewed|saved|applied]` — tracked jobs with stage + note.
 - Errors → stderr, exit code ≠ 0; 401 → "run `freehire auth login`".
 
 ## Testing (TDD)
@@ -66,9 +78,11 @@ DESIGN.md, README.md, .github/workflows/ci.yml
 - `config`: save/load round-trip, `0600` perms, env precedence, `ErrNoToken`
   (temp `$HOME`).
 - `client`: against `httptest.Server` — Bearer header set; `Me`/`Search`/`GetJob`/
-  `Apply` happy paths; `401`/`404`/`5xx` → `*APIError`.
+  `GetCompany`/`Apply`/`Save`/`MyJobs`/`Track` happy paths (`Track` sends `PATCH`
+  + `Content-Type`, omits nil fields); `401`/`404`/`5xx` → `*APIError`.
 - `cli`: command wiring against an `httptest.Server` (login writes creds; search/
-  apply hit the right path with the token; `--json` passthrough).
+  apply/stage/note/company hit the right path with the token; `my` shows stage +
+  note; `--json` passthrough).
 - No real network/prod in tests.
 
 ## Distribution

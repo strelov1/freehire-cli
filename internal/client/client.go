@@ -4,6 +4,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -135,6 +136,30 @@ func (c *Client) Apply(ctx context.Context, slug string) (json.RawMessage, error
 	return env.Data, err
 }
 
+// TrackParams are the optional fields of a track update. A nil field is omitted
+// from the request body, so the server leaves that column unchanged (partial
+// update); at least one must be set.
+type TrackParams struct {
+	Stage *string `json:"stage,omitempty"`
+	Notes *string `json:"notes,omitempty"`
+}
+
+// Track sets a job's application stage and/or notes (PATCH /jobs/:slug/track).
+func (c *Client) Track(ctx context.Context, slug string, p TrackParams) (json.RawMessage, error) {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPatch, "/api/v1/jobs/"+url.PathEscape(slug)+"/track", bytes.NewReader(body))
+	return env.Data, err
+}
+
+// GetCompany fetches a company and its open jobs by slug (GET /companies/:slug).
+func (c *Client) GetCompany(ctx context.Context, slug string) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/companies/"+url.PathEscape(slug), nil)
+	return env.Data, err
+}
+
 func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (envelope, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {
@@ -142,6 +167,9 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (e
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Accept", "application/json")
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
 
 	resp, err := c.http.Do(req)
 	if err != nil {

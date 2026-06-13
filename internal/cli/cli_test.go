@@ -191,3 +191,100 @@ func TestSaveAndMy(t *testing.T) {
 		t.Errorf("my out = %q", out)
 	}
 }
+
+func TestStageCmd(t *testing.T) {
+	var gotBody map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev/track", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPatch {
+			t.Errorf("method = %s, want PATCH", r.Method)
+		}
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Write([]byte(`{"data":{"job_id":1,"stage":"interview"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "stage", "go-dev", "interview", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("stage: %v", err)
+	}
+	if gotBody["stage"] != "interview" {
+		t.Errorf("body stage = %v, want interview", gotBody["stage"])
+	}
+	if !strings.Contains(out, "go-dev") || !strings.Contains(out, "interview") {
+		t.Errorf("stage out = %q", out)
+	}
+}
+
+func TestNoteCmd(t *testing.T) {
+	var gotBody map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev/track", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Write([]byte(`{"data":{"job_id":1,"notes":"call back monday"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	// Multi-word note without quoting: trailing args join into the note text.
+	out, err := run(t, "note", "go-dev", "call", "back", "monday", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("note: %v", err)
+	}
+	if gotBody["notes"] != "call back monday" {
+		t.Errorf("body notes = %v, want 'call back monday'", gotBody["notes"])
+	}
+	if _, ok := gotBody["stage"]; ok {
+		t.Errorf("stage should be omitted, body = %v", gotBody)
+	}
+	if !strings.Contains(out, "go-dev") {
+		t.Errorf("note out = %q", out)
+	}
+}
+
+func TestCompanyCmd(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/companies/acme", func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"data":{"company":{"slug":"acme","name":"Acme Inc"},"jobs":[{"public_slug":"go-dev","title":"Go Dev","location":"Remote"}]}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "company", "acme", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("company: %v", err)
+	}
+	if !strings.Contains(out, "Acme Inc") || !strings.Contains(out, "go-dev") {
+		t.Errorf("company out = %q", out)
+	}
+}
+
+func TestMyShowsStageAndNote(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/me/jobs", func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"data":[{"job":{"public_slug":"go-dev","title":"Go Dev","company":"Acme"},"applied_at":"2026-06-13T00:00:00Z","stage":"interview","notes":"recruiter call"}],"meta":{"total":1}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "my", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("my: %v", err)
+	}
+	// The stage replaces the coarse state, and the note appears as a snippet.
+	if !strings.Contains(out, "interview") {
+		t.Errorf("my out missing stage: %q", out)
+	}
+	if !strings.Contains(out, "recruiter call") {
+		t.Errorf("my out missing note: %q", out)
+	}
+}

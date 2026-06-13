@@ -38,11 +38,14 @@ never stored. Omit `--token` to be prompted on stdin.
 ```bash
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
-freehire job <slug>                                            # show a job's full content
+freehire job <slug>                                            # show a job's full content (incl. posting URL + company slug)
+freehire company <slug>                                        # show a company and its open jobs
 freehire apply <slug>                                          # mark a job applied for your account
 freehire save <slug>                                           # bookmark a job for later
 freehire unsave <slug>                                         # remove a bookmark
-freehire my --filter applied                                   # list your tracked jobs (all | viewed | saved | applied)
+freehire stage <slug> <stage>                                  # set application stage (applied→…→offer, or rejected/withdrawn)
+freehire note <slug> a quick reminder                          # attach a free-text note (trailing args; no quotes needed)
+freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
 ```
 
 ## For agents

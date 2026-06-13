@@ -36,7 +36,8 @@ func newRootCmd() *cobra.Command {
 	root.PersistentFlags().Bool("json", false, "output raw JSON from the API")
 	root.PersistentFlags().String("api-url", "", "override the API base URL")
 	root.AddCommand(newAuthCmd(), newSearchCmd(), newJobCmd(), newApplyCmd(),
-		newSaveCmd(), newUnsaveCmd(), newMyCmd())
+		newSaveCmd(), newUnsaveCmd(), newMyCmd(), newStageCmd(), newNoteCmd(),
+		newCompanyCmd())
 	return root
 }
 
@@ -72,10 +73,11 @@ func printJSON(cmd *cobra.Command, data json.RawMessage) {
 
 // jobRow is the subset of a job shown in a search-results row.
 type jobRow struct {
-	PublicSlug string `json:"public_slug"`
-	Title      string `json:"title"`
-	Company    string `json:"company"`
-	Location   string `json:"location"`
+	PublicSlug  string `json:"public_slug"`
+	Title       string `json:"title"`
+	Company     string `json:"company"`
+	CompanySlug string `json:"company_slug"`
+	Location    string `json:"location"`
 }
 
 // jobDetail adds the fields shown for a single job.

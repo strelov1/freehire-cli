@@ -92,7 +92,8 @@ func newJobCmd() *cobra.Command {
 				return err
 			}
 			out := cmd.OutOrStdout()
-			fmt.Fprintf(out, "%s\n%s · %s\n%s\n\n%s\n", j.Title, j.Company, j.Location, j.URL, j.Description)
+			fmt.Fprintf(out, "%s\n%s (%s) · %s\n%s\n\n%s\n",
+				j.Title, j.Company, j.CompanySlug, j.Location, j.URL, j.Description)
 			return nil
 		},
 	}
@@ -205,8 +206,12 @@ func newMyCmd() *cobra.Command {
 			}
 			out := cmd.OutOrStdout()
 			for _, r := range rows {
-				fmt.Fprintf(out, "%-40s  %-20s  %-9s  %s\n",
-					trunc(r.Job.Title, 40), trunc(r.Job.Company, 20), r.state(), r.Job.PublicSlug)
+				note := ""
+				if r.Notes != nil && *r.Notes != "" {
+					note = "  — " + trunc(*r.Notes, 40)
+				}
+				fmt.Fprintf(out, "%-40s  %-20s  %-10s  %s%s\n",
+					trunc(r.Job.Title, 40), trunc(r.Job.Company, 20), r.status(), r.Job.PublicSlug, note)
 			}
 			fmt.Fprintf(out, "\n%d of %d shown\n", len(rows), res.Total)
 			return nil
@@ -219,11 +224,13 @@ func newMyCmd() *cobra.Command {
 }
 
 // myJobRow is one row of the `my` listing: the job plus the caller's interaction
-// timestamps.
+// timestamps, application stage, and notes.
 type myJobRow struct {
 	Job       jobRow  `json:"job"`
 	SavedAt   *string `json:"saved_at"`
 	AppliedAt *string `json:"applied_at"`
+	Stage     *string `json:"stage"`
+	Notes     *string `json:"notes"`
 }
 
 // state renders the interaction as a short tag for the human listing.
@@ -236,4 +243,13 @@ func (r myJobRow) state() string {
 	default:
 		return "viewed"
 	}
+}
+
+// status is the most specific label for the row: the application stage when the
+// user has set one, otherwise the coarse interaction state.
+func (r myJobRow) status() string {
+	if r.Stage != nil && *r.Stage != "" {
+		return *r.Stage
+	}
+	return r.state()
 }
