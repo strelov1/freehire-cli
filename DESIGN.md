@@ -17,7 +17,7 @@ shell-completion docs; goreleaser/homebrew; semantic-search flags.
 ## Layout
 
 ```
-main.go                 # thin: cli.Execute()
+cmd/freehire/main.go    # thin entry: cli.Execute() (so `go install` yields `freehire`)
 internal/
   config/   creds.json load/save (0600) + env/default resolution
   client/   API client over net/http: Me, Search, GetJob, Apply (+ APIError)
@@ -73,5 +73,5 @@ DESIGN.md, README.md, .github/workflows/ci.yml
 
 ## Distribution
 
-`go install github.com/strelov1/freehire-cli@latest` (binary `freehire`).
+`go install github.com/strelov1/freehire-cli/cmd/freehire@latest` (binary `freehire`).
 README with agent examples; minimal GitHub Actions CI (build + test).

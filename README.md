@@ -8,7 +8,7 @@ in `~/.freehire/creds.json`.
 ## Install
 
 ```bash
-go install github.com/strelov1/freehire-cli@latest   # installs the `freehire` binary
+go install github.com/strelov1/freehire-cli/cmd/freehire@latest   # installs the `freehire` binary
 ```
 
 ## Authenticate
