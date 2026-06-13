@@ -10,7 +10,7 @@ in `~/.freehire/creds.json`.
 **curl** (prebuilt binary, no Go needed):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/strelov1/freehire-cli/main/install.sh | sh
+curl -fsSL https://freehire.dev/install.sh | sh
 ```
 
 **Go:**

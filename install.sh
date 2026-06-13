@@ -1,7 +1,8 @@
 #!/bin/sh
 # Install the freehire CLI: download the prebuilt binary for this OS/arch from the
 # latest GitHub release and place it on PATH.
-#   curl -fsSL https://raw.githubusercontent.com/strelov1/freehire-cli/main/install.sh | sh
+#   curl -fsSL https://freehire.dev/install.sh | sh
+# (freehire.dev serves this same script; the raw GitHub URL also works.)
 set -eu
 
 REPO="strelov1/freehire-cli"
