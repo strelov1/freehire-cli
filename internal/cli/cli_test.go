@@ -288,3 +288,55 @@ func TestMyShowsStageAndNote(t *testing.T) {
 		t.Errorf("my out missing note: %q", out)
 	}
 }
+
+func TestJobsAddAndEdit(t *testing.T) {
+	var addBody, editBody map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&addBody)
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"data":{"public_slug":"go-dev-acme-abcd1234","title":"Go Dev"}}`))
+	})
+	mux.HandleFunc("/api/v1/jobs/go-dev-acme-abcd1234", func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewDecoder(r.Body).Decode(&editBody)
+		w.Write([]byte(`{"data":{"public_slug":"go-dev-acme-abcd1234","title":"Staff Dev"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "jobs", "add", "--api-url", srv.URL,
+		"--url", "https://acme.example/jobs/1", "--title", "Go Dev", "--company", "Acme", "--remote")
+	if err != nil {
+		t.Fatalf("jobs add: %v", err)
+	}
+	if !strings.Contains(out, "go-dev-acme-abcd1234") {
+		t.Errorf("add out = %q, want the created slug", out)
+	}
+	if addBody["url"] != "https://acme.example/jobs/1" || addBody["remote"] != true {
+		t.Errorf("add body = %v", addBody)
+	}
+
+	out, err = run(t, "jobs", "edit", "go-dev-acme-abcd1234", "--api-url", srv.URL, "--title", "Staff Dev")
+	if err != nil {
+		t.Fatalf("jobs edit: %v", err)
+	}
+	if !strings.Contains(out, "Job updated") {
+		t.Errorf("edit out = %q", out)
+	}
+	if editBody["title"] != "Staff Dev" {
+		t.Errorf("edit body = %v, want only title", editBody)
+	}
+	if _, ok := editBody["company"]; ok {
+		t.Errorf("edit body should omit unset fields, got %v", editBody)
+	}
+}
+
+func TestJobsEditRequiresAField(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+	if _, err := run(t, "jobs", "edit", "some-slug", "--api-url", "http://unused.test"); err == nil {
+		t.Error("jobs edit with no field flags should error")
+	}
+}

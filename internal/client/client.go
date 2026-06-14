@@ -160,6 +160,52 @@ func (c *Client) GetCompany(ctx context.Context, slug string) (json.RawMessage, 
 	return env.Data, err
 }
 
+// CreateJobParams is the body for creating a moderator-authored job (POST /jobs).
+// URL (the dedup key), Title, and Company are required by the server; the rest is
+// optional. PostedAt is an optional RFC3339 timestamp, omitted when nil.
+type CreateJobParams struct {
+	URL         string  `json:"url"`
+	Title       string  `json:"title"`
+	Company     string  `json:"company"`
+	Location    string  `json:"location,omitempty"`
+	Remote      bool    `json:"remote"`
+	Description string  `json:"description,omitempty"`
+	PostedAt    *string `json:"posted_at,omitempty"`
+}
+
+// CreateJob creates a hand-curated job (POST /jobs, moderator only). Re-creating the
+// same URL updates the posting (idempotent upsert on the server).
+func (c *Client) CreateJob(ctx context.Context, p CreateJobParams) (json.RawMessage, error) {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPost, "/api/v1/jobs", bytes.NewReader(body))
+	return env.Data, err
+}
+
+// EditJobParams is the body for editing a manual job (PATCH /jobs/:slug). Every field
+// is optional: a nil field is omitted, so the server leaves that column unchanged
+// (partial update). The URL identity is not editable.
+type EditJobParams struct {
+	Title       *string `json:"title,omitempty"`
+	Company     *string `json:"company,omitempty"`
+	Location    *string `json:"location,omitempty"`
+	Remote      *bool   `json:"remote,omitempty"`
+	Description *string `json:"description,omitempty"`
+	PostedAt    *string `json:"posted_at,omitempty"`
+}
+
+// EditJob partially updates a manual job (PATCH /jobs/:slug, moderator only).
+func (c *Client) EditJob(ctx context.Context, slug string, p EditJobParams) (json.RawMessage, error) {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPatch, "/api/v1/jobs/"+url.PathEscape(slug), bytes.NewReader(body))
+	return env.Data, err
+}
+
 func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (envelope, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {

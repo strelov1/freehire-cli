@@ -48,6 +48,14 @@ freehire note <slug> a quick reminder                          # attach a free-t
 freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
 ```
 
+Moderators can author postings (requires the `moderator` role; a regular key gets 403):
+
+```bash
+freehire jobs add --url https://acme.example/jobs/1 --title "Senior Go Developer" --company Acme --remote
+freehire jobs add --url <url> --title <t> --company <c> --location Berlin --description "…"  # URL is the dedup key
+freehire jobs edit <slug> --title "Staff Go Developer"         # partial: only the flags you pass change
+```
+
 ## For agents
 
 Pass `--json` for the raw API payload (faithful to the API; ideal for piping):

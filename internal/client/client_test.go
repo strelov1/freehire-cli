@@ -211,6 +211,77 @@ func TestClient_Track(t *testing.T) {
 	}
 }
 
+func TestClient_CreateJob(t *testing.T) {
+	var gotMethod string
+	var gotBody map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"data":{"public_slug":"go-dev-acme-abcd1234","title":"Go Dev"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "good", srv.Client())
+
+	data, err := c.CreateJob(context.Background(), CreateJobParams{
+		URL:     "https://acme.example/jobs/1",
+		Title:   "Go Dev",
+		Company: "Acme",
+		Remote:  true,
+	})
+	if err != nil {
+		t.Fatalf("CreateJob: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %s, want POST", gotMethod)
+	}
+	if gotBody["url"] != "https://acme.example/jobs/1" || gotBody["company"] != "Acme" {
+		t.Errorf("body = %v, want url+company set", gotBody)
+	}
+	if gotBody["remote"] != true {
+		t.Errorf("remote = %v, want true", gotBody["remote"])
+	}
+	if _, ok := gotBody["posted_at"]; ok {
+		t.Errorf("posted_at should be omitted when nil, body = %v", gotBody)
+	}
+	if !strings.Contains(string(data), "go-dev-acme-abcd1234") {
+		t.Errorf("data = %s", data)
+	}
+}
+
+func TestClient_EditJob(t *testing.T) {
+	var gotMethod string
+	var gotBody map[string]any
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev-acme-abcd1234", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Write([]byte(`{"data":{"public_slug":"go-dev-acme-abcd1234","title":"Staff Dev"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "good", srv.Client())
+
+	title := "Staff Dev"
+	if _, err := c.EditJob(context.Background(), "go-dev-acme-abcd1234", EditJobParams{Title: &title}); err != nil {
+		t.Fatalf("EditJob: %v", err)
+	}
+	if gotMethod != http.MethodPatch {
+		t.Errorf("method = %s, want PATCH", gotMethod)
+	}
+	if gotBody["title"] != "Staff Dev" {
+		t.Errorf("title = %v, want Staff Dev", gotBody["title"])
+	}
+	// Unset fields are omitted so the server leaves them unchanged (partial update).
+	for _, f := range []string{"company", "location", "description", "remote", "posted_at"} {
+		if _, ok := gotBody[f]; ok {
+			t.Errorf("%s should be omitted when nil, body = %v", f, gotBody)
+		}
+	}
+}
+
 func TestClient_GetCompany(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/companies/acme", func(w http.ResponseWriter, r *http.Request) {
