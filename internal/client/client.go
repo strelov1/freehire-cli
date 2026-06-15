@@ -208,6 +208,47 @@ func (c *Client) EditJob(ctx context.Context, slug string, p EditJobParams) (jso
 	return env.Data, err
 }
 
+// Submit queues a vacancy for moderation (POST /submissions). The body shape is the
+// same as a moderator create; the server stores it as pending and returns it.
+func (c *Client) Submit(ctx context.Context, p CreateJobParams) (json.RawMessage, error) {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPost, "/api/v1/submissions", bytes.NewReader(body))
+	return env.Data, err
+}
+
+// MySubmissions lists the caller's own submissions with their status (GET /me/submissions).
+func (c *Client) MySubmissions(ctx context.Context) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/me/submissions", nil)
+	return env.Data, err
+}
+
+// PendingSubmissions lists the moderator review queue (GET /submissions, moderator only).
+func (c *Client) PendingSubmissions(ctx context.Context) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/submissions", nil)
+	return env.Data, err
+}
+
+// ApproveSubmission approves a pending submission, minting a live job
+// (POST /submissions/:id/approve, moderator only).
+func (c *Client) ApproveSubmission(ctx context.Context, id int64) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodPost, "/api/v1/submissions/"+strconv.FormatInt(id, 10)+"/approve", nil)
+	return env.Data, err
+}
+
+// RejectSubmission rejects a pending submission with an optional reason
+// (POST /submissions/:id/reject, moderator only).
+func (c *Client) RejectSubmission(ctx context.Context, id int64, reason string) (json.RawMessage, error) {
+	body, err := json.Marshal(map[string]string{"reason": reason})
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPost, "/api/v1/submissions/"+strconv.FormatInt(id, 10)+"/reject", bytes.NewReader(body))
+	return env.Data, err
+}
+
 func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (envelope, error) {
 	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
 	if err != nil {
