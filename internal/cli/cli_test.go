@@ -307,7 +307,8 @@ func TestJobsAddAndEdit(t *testing.T) {
 	t.Setenv("FREEHIRE_TOKEN", "good")
 
 	out, err := run(t, "jobs", "add", "--api-url", srv.URL,
-		"--url", "https://acme.example/jobs/1", "--title", "Go Dev", "--company", "Acme", "--remote")
+		"--url", "https://acme.example/jobs/1", "--source", "workatastartup",
+		"--title", "Go Dev", "--company", "Acme", "--remote")
 	if err != nil {
 		t.Fatalf("jobs add: %v", err)
 	}
@@ -316,6 +317,9 @@ func TestJobsAddAndEdit(t *testing.T) {
 	}
 	if addBody["url"] != "https://acme.example/jobs/1" || addBody["remote"] != true {
 		t.Errorf("add body = %v", addBody)
+	}
+	if addBody["source"] != "workatastartup" {
+		t.Errorf("add body source = %v, want workatastartup", addBody["source"])
 	}
 
 	out, err = run(t, "jobs", "edit", "go-dev-acme-abcd1234", "--api-url", srv.URL, "--title", "Staff Dev")
