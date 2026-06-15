@@ -162,9 +162,11 @@ func (c *Client) GetCompany(ctx context.Context, slug string) (json.RawMessage, 
 
 // CreateJobParams is the body for creating a moderator-authored job (POST /jobs).
 // URL (the dedup key), Title, and Company are required by the server; the rest is
-// optional. PostedAt is an optional RFC3339 timestamp, omitted when nil.
+// optional. Source is the posting's real origin (the server defaults it to "manual"
+// when omitted). PostedAt is an optional RFC3339 timestamp, omitted when nil.
 type CreateJobParams struct {
 	URL         string  `json:"url"`
+	Source      string  `json:"source,omitempty"`
 	Title       string  `json:"title"`
 	Company     string  `json:"company"`
 	Location    string  `json:"location,omitempty"`

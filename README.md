@@ -52,9 +52,14 @@ Moderators can author postings (requires the `moderator` role; a regular key get
 
 ```bash
 freehire jobs add --url https://acme.example/jobs/1 --title "Senior Go Developer" --company Acme --remote
-freehire jobs add --url <url> --title <t> --company <c> --location Berlin --description "…"  # URL is the dedup key
+freehire jobs add --url <url> --source workatastartup --title <t> --company <c> --description "<p>…HTML…</p>"
 freehire jobs edit <slug> --title "Staff Go Developer"         # partial: only the flags you pass change
 ```
+
+`--source` records the posting's real origin (defaults to `manual`); it does not change that
+the job is flagged as manually added (that comes from the moderator authorship). `--description`
+is stored and rendered as HTML, so pass HTML markup. The URL is the dedup key — re-running `add`
+with the same URL updates the posting.
 
 ## For agents
 

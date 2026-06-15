@@ -37,6 +37,7 @@ func newJobsAddCmd() *cobra.Command {
 			}
 			p := client.CreateJobParams{
 				URL:         mustString(cmd, "url"),
+				Source:      mustString(cmd, "source"),
 				Title:       mustString(cmd, "title"),
 				Company:     mustString(cmd, "company"),
 				Location:    mustString(cmd, "location"),
@@ -55,10 +56,11 @@ func newJobsAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("url", "", "canonical posting URL (required, dedup key)")
+	cmd.Flags().String("source", "", "real origin of the posting (default \"manual\"); e.g. workatastartup")
 	cmd.Flags().String("title", "", "job title (required)")
 	cmd.Flags().String("company", "", "company name (required)")
 	cmd.Flags().String("location", "", "free-text location")
-	cmd.Flags().String("description", "", "job description")
+	cmd.Flags().String("description", "", "job description (HTML; rendered as-is)")
 	cmd.Flags().Bool("remote", false, "mark the job remote")
 	cmd.Flags().String("posted-at", "", "posting date (RFC3339)")
 	return cmd

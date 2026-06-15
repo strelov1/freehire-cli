@@ -227,6 +227,7 @@ func TestClient_CreateJob(t *testing.T) {
 
 	data, err := c.CreateJob(context.Background(), CreateJobParams{
 		URL:     "https://acme.example/jobs/1",
+		Source:  "workatastartup",
 		Title:   "Go Dev",
 		Company: "Acme",
 		Remote:  true,
@@ -239,6 +240,9 @@ func TestClient_CreateJob(t *testing.T) {
 	}
 	if gotBody["url"] != "https://acme.example/jobs/1" || gotBody["company"] != "Acme" {
 		t.Errorf("body = %v, want url+company set", gotBody)
+	}
+	if gotBody["source"] != "workatastartup" {
+		t.Errorf("source = %v, want workatastartup", gotBody["source"])
 	}
 	if gotBody["remote"] != true {
 		t.Errorf("remote = %v, want true", gotBody["remote"])
