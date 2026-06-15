@@ -34,6 +34,18 @@ func newSearchCmd() *cobra.Command {
 			if companies, _ := cmd.Flags().GetStringArray("company"); len(companies) > 0 {
 				facets["company_slug"] = companies
 			}
+			// Role/level/skill facets — repeatable; multiple values OR within a facet.
+			// The API maps these param names onto the (LLM ?? title-derived) index
+			// fields, so they cover far more of the catalogue than the LLM alone.
+			if categories, _ := cmd.Flags().GetStringArray("category"); len(categories) > 0 {
+				facets["category"] = categories
+			}
+			if seniorities, _ := cmd.Flags().GetStringArray("seniority"); len(seniorities) > 0 {
+				facets["seniority"] = seniorities
+			}
+			if skills, _ := cmd.Flags().GetStringArray("skills"); len(skills) > 0 {
+				facets["skills"] = skills
+			}
 
 			res, err := c.Search(cmd.Context(), client.SearchParams{
 				Query:  strings.Join(args, " "),
@@ -66,6 +78,9 @@ func newSearchCmd() *cobra.Command {
 	cmd.Flags().Bool("remote", false, "only remote jobs (work_mode=remote)")
 	cmd.Flags().StringArray("region", nil, "filter by region: global|ru|cis|central_asia|eu|us (repeatable)")
 	cmd.Flags().StringArray("company", nil, "filter by company slug (repeatable)")
+	cmd.Flags().StringArray("category", nil, "filter by role category: backend|frontend|fullstack|mobile|devops|sre|ml_ai|data_engineering|data_science|data_analytics|qa|security|embedded|design|product|management|marketing|sales|support|... (repeatable)")
+	cmd.Flags().StringArray("seniority", nil, "filter by seniority: intern|junior|middle|senior|staff|principal|lead|c_level (repeatable)")
+	cmd.Flags().StringArray("skills", nil, "filter by skill, e.g. go, react (repeatable)")
 	return cmd
 }
 
