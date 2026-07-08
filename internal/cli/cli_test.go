@@ -398,3 +398,33 @@ func TestMarketFitRequiresSkills(t *testing.T) {
 		t.Fatal("market-fit without --skills should error")
 	}
 }
+
+func TestFacetsListsValuesAndStats(t *testing.T) {
+	var gotQuery url.Values
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		gotQuery = r.URL.Query()
+		w.Write([]byte(`{"data":{"total":1234,"facets":{"category":{"backend":300,"frontend":200},"skills":{"go":180,"react":90}},"stats":{"salary_min":{"min":0,"max":400000}}}}`))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "facets", "--category", "backend", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("facets: %v", err)
+	}
+	if gotQuery.Get("category") != "backend" {
+		t.Errorf("query = %v, want category=backend", gotQuery)
+	}
+	// Values are shown count-descending with counts, and the numeric stat range.
+	if !strings.Contains(out, "backend (300)") || !strings.Contains(out, "go (180)") {
+		t.Errorf("human output missing facet values: %q", out)
+	}
+	if !strings.Contains(out, "1234 open vacancies") || !strings.Contains(out, "salary_min:") {
+		t.Errorf("human output missing total/stats: %q", out)
+	}
+}

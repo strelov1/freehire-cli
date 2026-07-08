@@ -129,6 +129,24 @@ func (c *Client) Coverage(ctx context.Context, p CoverageParams) (json.RawMessag
 	return env.Data, err
 }
 
+// Facets returns the market's facet-value distributions under an optional filter
+// (GET /jobs/facets): each facet's live values with counts, plus numeric stats. It
+// is the vocabulary an agent reads to know which filter values and skills exist.
+func (c *Client) Facets(ctx context.Context, facets url.Values) (json.RawMessage, error) {
+	q := url.Values{}
+	for k, vs := range facets {
+		for _, v := range vs {
+			q.Add(k, v)
+		}
+	}
+	path := "/api/v1/jobs/facets"
+	if enc := q.Encode(); enc != "" {
+		path += "?" + enc
+	}
+	env, err := c.do(ctx, http.MethodGet, path, nil)
+	return env.Data, err
+}
+
 // Save bookmarks a job (POST /jobs/:slug/save).
 func (c *Client) Save(ctx context.Context, slug string) (json.RawMessage, error) {
 	env, err := c.do(ctx, http.MethodPost, "/api/v1/jobs/"+url.PathEscape(slug)+"/save", nil)

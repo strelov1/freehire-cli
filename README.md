@@ -36,6 +36,7 @@ never stored. Omit `--token` to be prompted on stdin.
 ## Use
 
 ```bash
+freehire facets                                                # list every filter's live values + counts (what to filter by)
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
 freehire search "data" --country BR --employment-type full_time --facet source=greenhouse  # any facet via --facet key=value
@@ -50,6 +51,11 @@ freehire stage <slug> <stage>                                  # set application
 freehire note <slug> a quick reminder                          # attach a free-text note (trailing args; no quotes needed)
 freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
 ```
+
+**Discovering values.** `freehire facets [filters]` lists every filter's live
+values with a vacancy count each (and the `skills` vocabulary), so you pass real
+values to `search`/`market-fit` instead of guessing. Narrow it with any filter flag
+to see the values for that slice (e.g. `freehire facets --category backend`).
 
 **Filters.** `search` and `market-fit` share the same market-filter flags:
 `--remote`, `--region`, `--country`, `--city`, `--company`, `--category`, `--role`,
@@ -91,6 +97,10 @@ freehire --json job <slug> | jq '{title, url}'
 Conventions: results go to **stdout**, errors to **stderr**, and a non-zero exit
 code signals failure (e.g. an unauthenticated call exits non-zero with
 `run \`freehire auth login\``).
+
+An agent **skill** ships in [`skills/using-freehire/SKILL.md`](skills/using-freehire/SKILL.md):
+drop it into a Claude Code (or compatible) skills directory and the agent learns the
+discover → search → apply loop, including `facets` and `market-fit`.
 
 ## Configuration
 

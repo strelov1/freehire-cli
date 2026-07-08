@@ -348,3 +348,31 @@ func TestClient_Coverage(t *testing.T) {
 		t.Errorf("coverage data = %s", data)
 	}
 }
+
+func TestClient_Facets(t *testing.T) {
+	var gotMethod string
+	var gotQuery url.Values
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/facets", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotQuery = r.URL.Query()
+		w.Write([]byte(`{"data":{"total":1234,"facets":{"category":{"backend":300,"frontend":200},"skills":{"go":180}},"stats":{"salary_min":{"min":0,"max":400000}}}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "good", srv.Client())
+
+	data, err := c.Facets(context.Background(), url.Values{"category": {"backend"}})
+	if err != nil {
+		t.Fatalf("Facets: %v", err)
+	}
+	if gotMethod != http.MethodGet {
+		t.Errorf("method = %s, want GET", gotMethod)
+	}
+	if gotQuery.Get("category") != "backend" {
+		t.Errorf("query = %v, want category=backend", gotQuery)
+	}
+	if !strings.Contains(string(data), `"total":1234`) || !strings.Contains(string(data), `"go":180`) {
+		t.Errorf("facets data = %s", data)
+	}
+}
