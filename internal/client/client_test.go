@@ -306,3 +306,45 @@ func TestClient_GetCompany(t *testing.T) {
 		t.Errorf("company data = %s", data)
 	}
 }
+
+func TestClient_Coverage(t *testing.T) {
+	var gotMethod, gotCT string
+	var gotQuery url.Values
+	var gotBody struct {
+		Skills []string `json:"skills"`
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/market/coverage", func(w http.ResponseWriter, r *http.Request) {
+		gotMethod = r.Method
+		gotCT = r.Header.Get("Content-Type")
+		gotQuery = r.URL.Query()
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Write([]byte(`{"data":{"total":500,"covered":300,"coverage_percent":60,"gaps":[]}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "good", srv.Client())
+
+	data, err := c.Coverage(context.Background(), CoverageParams{
+		Skills: []string{"go", "docker"},
+		Facets: url.Values{"category": {"backend"}, "countries": {"BR"}},
+	})
+	if err != nil {
+		t.Fatalf("Coverage: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %s, want POST", gotMethod)
+	}
+	if gotCT != "application/json" {
+		t.Errorf("content-type = %q, want application/json", gotCT)
+	}
+	if len(gotBody.Skills) != 2 || gotBody.Skills[0] != "go" || gotBody.Skills[1] != "docker" {
+		t.Errorf("body skills = %v, want [go docker]", gotBody.Skills)
+	}
+	if gotQuery.Get("category") != "backend" || gotQuery.Get("countries") != "BR" {
+		t.Errorf("query facets = %v, want category=backend&countries=BR", gotQuery)
+	}
+	if !strings.Contains(string(data), `"coverage_percent":60`) {
+		t.Errorf("coverage data = %s", data)
+	}
+}

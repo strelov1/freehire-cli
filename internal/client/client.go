@@ -96,6 +96,39 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	return Page{Data: env.Data, Total: env.Meta.Total}, nil
 }
 
+// CoverageParams is a market-coverage query: Skills is the measured skill list
+// (sent in the request body), Facets narrows the market (sent as query params —
+// the full facet vocabulary).
+type CoverageParams struct {
+	Skills []string
+	Facets url.Values
+}
+
+// Coverage scores a skill list against the facet-filtered market
+// (POST /market/coverage): how many open vacancies for the filter list at least
+// one of the skills, plus ranked skill gaps and the role's top in-demand skills.
+// One skill or many — a single-element Skills probes that skill's demand.
+func (c *Client) Coverage(ctx context.Context, p CoverageParams) (json.RawMessage, error) {
+	body, err := json.Marshal(struct {
+		Skills []string `json:"skills"`
+	}{Skills: p.Skills})
+	if err != nil {
+		return nil, err
+	}
+	q := url.Values{}
+	for k, vs := range p.Facets {
+		for _, v := range vs {
+			q.Add(k, v)
+		}
+	}
+	path := "/api/v1/market/coverage"
+	if enc := q.Encode(); enc != "" {
+		path += "?" + enc
+	}
+	env, err := c.do(ctx, http.MethodPost, path, bytes.NewReader(body))
+	return env.Data, err
+}
+
 // Save bookmarks a job (POST /jobs/:slug/save).
 func (c *Client) Save(ctx context.Context, slug string) (json.RawMessage, error) {
 	env, err := c.do(ctx, http.MethodPost, "/api/v1/jobs/"+url.PathEscape(slug)+"/save", nil)

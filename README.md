@@ -38,6 +38,9 @@ never stored. Omit `--token` to be prompted on stdin.
 ```bash
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
+freehire search "data" --country BR --employment-type full_time --facet source=greenhouse  # any facet via --facet key=value
+freehire market-fit --skills go,docker,react --category backend  # how much of the market your skills cover (+ gaps)
+freehire market-fit --skills go --country BR                    # one skill probes that skill's demand under the filter
 freehire job <slug>                                            # show a job's full content (incl. posting URL + company slug)
 freehire company <slug>                                        # show a company and its open jobs
 freehire apply <slug>                                          # mark a job applied for your account
@@ -47,6 +50,21 @@ freehire stage <slug> <stage>                                  # set application
 freehire note <slug> a quick reminder                          # attach a free-text note (trailing args; no quotes needed)
 freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
 ```
+
+**Filters.** `search` and `market-fit` share the same market-filter flags:
+`--remote`, `--region`, `--country`, `--city`, `--company`, `--category`, `--role`,
+`--seniority`, `--employment-type`, `--english-level`, `--salary-min`, `--visa`
+(each named facet is repeatable). Any other facet in the API's vocabulary is
+reachable with `--facet key=value` (repeatable), e.g. `--facet source=greenhouse`
+or `--facet company_size=startup`.
+
+**market-fit** measures how much of the live open-vacancy market your skills reach
+for a filtered role: the headline coverage (`N%` of vacancies list ≥1 of your
+skills), the must-have skills you hold, and the missing skills that unlock the most
+new vacancies. Pass your skills with `--skills` (comma-separated or repeated) — one
+skill probes that single skill's demand; a list scores your whole stack. Note that
+here `--skills` is the *measured set*, not a filter (in `search`, `--skills` filters
+to jobs listing the skill).
 
 Moderators can author postings (requires the `moderator` role; a regular key gets 403):
 
