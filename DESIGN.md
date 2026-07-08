@@ -55,6 +55,8 @@ DESIGN.md, README.md, .github/workflows/ci.yml
     a nil field is omitted so the server leaves that column unchanged).
   - `Coverage({skills, facets})` → `POST /market/coverage` (skills in the JSON
     body, facets as the query string) — market coverage for a skill list.
+  - `Facets(facets)` → `GET /jobs/facets` — the market's facet-value distributions
+    (the filter/skill vocabulary) under an optional filter.
 
 ## Facet filters (`facets.go`)
 
@@ -73,6 +75,9 @@ param in the API vocabulary. `--skills` is intentionally NOT shared: it filters 
   validates with `Me`; writes creds; prints `Logged in as <email>`.
   `auth status` — `Me` → `Authenticated as <email> @ <api_url>` or not.
   `auth logout` — removes creds.
+- `freehire facets [<facet flags>]` — every filter's live values with counts (+ the
+  skills vocabulary and numeric stat ranges); the discovery step so an agent picks
+  real values. Count-descending, `--top` caps per-facet values; or raw `--json`.
 - `freehire search <query> [--limit --offset <facet flags> --skills]` —
   table (title · company · location · slug) or raw `--json`.
 - `freehire market-fit --skills <s,…> [<facet flags>]` — market coverage for the
