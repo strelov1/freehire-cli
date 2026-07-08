@@ -344,3 +344,57 @@ func TestJobsEditRequiresAField(t *testing.T) {
 		t.Error("jobs edit with no field flags should error")
 	}
 }
+
+func TestMarketFitSendsSkillsBodyAndFacetQuery(t *testing.T) {
+	var gotMethod string
+	var gotQuery url.Values
+	var gotBody struct {
+		Skills []string `json:"skills"`
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer good" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		gotMethod = r.Method
+		gotQuery = r.URL.Query()
+		_ = json.NewDecoder(r.Body).Decode(&gotBody)
+		w.Write([]byte(`{"data":{"total":500,"covered":300,"coverage_percent":60,"must_have_total":5,"must_have_covered":3,"stack_match_percent":55,"gaps":[{"name":"kubernetes","new_vacancies":80,"unlock_percent":16}]}}`))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "market-fit",
+		"--skills", "go,docker", "--skills", "react",
+		"--category", "backend", "--country", "BR", "--facet", "source=greenhouse",
+		"--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("market-fit: %v", err)
+	}
+	if gotMethod != http.MethodPost {
+		t.Errorf("method = %s, want POST", gotMethod)
+	}
+	// Skills (comma-split + repeated) go in the body, not the query.
+	if len(gotBody.Skills) != 3 || gotBody.Skills[0] != "go" || gotBody.Skills[2] != "react" {
+		t.Errorf("body skills = %v, want [go docker react]", gotBody.Skills)
+	}
+	if gotQuery.Has("skills") {
+		t.Errorf("skills must not leak into the market filter query: %v", gotQuery["skills"])
+	}
+	// Named facet, new named facet, and the generic --facet all reach the query.
+	if gotQuery.Get("category") != "backend" || gotQuery.Get("countries") != "BR" || gotQuery.Get("source") != "greenhouse" {
+		t.Errorf("query facets = %v", gotQuery)
+	}
+	if !strings.Contains(out, "Coverage: 60%") || !strings.Contains(out, "kubernetes") {
+		t.Errorf("human output = %q", out)
+	}
+}
+
+func TestMarketFitRequiresSkills(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+	if _, err := run(t, "market-fit", "--api-url", "http://unused"); err == nil {
+		t.Fatal("market-fit without --skills should error")
+	}
+}

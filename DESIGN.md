@@ -53,6 +53,18 @@ DESIGN.md, README.md, .github/workflows/ci.yml
   - `MyJobs(filter, limit, offset)` → `GET /me/jobs` (+ `meta.total`).
   - `Track(slug, {stage?, notes?})` → `PATCH /jobs/:slug/track` (partial update;
     a nil field is omitted so the server leaves that column unchanged).
+  - `Coverage({skills, facets})` → `POST /market/coverage` (skills in the JSON
+    body, facets as the query string) — market coverage for a skill list.
+
+## Facet filters (`facets.go`)
+
+`search` and `market-fit` share one filter surface (`addFacetFlags` /
+`facetsFromFlags`): named convenience flags for the high-traffic facets
+(`--remote`, `--region`, `--country`, `--city`, `--company`, `--category`,
+`--role`, `--seniority`, `--employment-type`, `--english-level`, `--salary-min`,
+`--visa`) plus a generic `--facet key=value` (repeatable) that reaches any facet
+param in the API vocabulary. `--skills` is intentionally NOT shared: it filters in
+`search` (facet) but is the measured set in `market-fit` (body).
 
 ## Commands (`cli`, cobra)
 
@@ -61,8 +73,11 @@ DESIGN.md, README.md, .github/workflows/ci.yml
   validates with `Me`; writes creds; prints `Logged in as <email>`.
   `auth status` — `Me` → `Authenticated as <email> @ <api_url>` or not.
   `auth logout` — removes creds.
-- `freehire search <query> [--limit --offset --remote --region --company]` —
+- `freehire search <query> [--limit --offset <facet flags> --skills]` —
   table (title · company · location · slug) or raw `--json`.
+- `freehire market-fit --skills <s,…> [<facet flags>]` — market coverage for the
+  skill list: `Coverage: N% (covered/total)`, must-have held, and the biggest
+  missing-skill gaps; or raw `--json`. One `--skills` value probes a single skill.
 - `freehire job <slug>` — job content (title, company + slug, location, url,
   description) or raw `--json`.
 - `freehire company <slug>` — the company and its open jobs.

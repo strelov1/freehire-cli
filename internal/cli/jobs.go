@@ -3,7 +3,6 @@ package cli
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -24,27 +23,14 @@ func newSearchCmd() *cobra.Command {
 			limit, _ := cmd.Flags().GetInt("limit")
 			offset, _ := cmd.Flags().GetInt("offset")
 
-			facets := url.Values{}
-			if remote, _ := cmd.Flags().GetBool("remote"); remote {
-				facets.Set("work_mode", "remote")
+			facets, err := facetsFromFlags(cmd)
+			if err != nil {
+				return err
 			}
-			if regions, _ := cmd.Flags().GetStringArray("region"); len(regions) > 0 {
-				facets["regions"] = regions
-			}
-			if companies, _ := cmd.Flags().GetStringArray("company"); len(companies) > 0 {
-				facets["company_slug"] = companies
-			}
-			// Role/level/skill facets — repeatable; multiple values OR within a facet.
-			// The API maps these param names onto the (LLM ?? title-derived) index
-			// fields, so they cover far more of the catalogue than the LLM alone.
-			if categories, _ := cmd.Flags().GetStringArray("category"); len(categories) > 0 {
-				facets["category"] = categories
-			}
-			if seniorities, _ := cmd.Flags().GetStringArray("seniority"); len(seniorities) > 0 {
-				facets["seniority"] = seniorities
-			}
+			// --skills is a market filter here (jobs listing the skill), so it joins
+			// the facet params — unlike market-fit, where --skills is the measured set.
 			if skills, _ := cmd.Flags().GetStringArray("skills"); len(skills) > 0 {
-				facets["skills"] = skills
+				facets["skills"] = append(facets["skills"], skills...)
 			}
 
 			res, err := c.Search(cmd.Context(), client.SearchParams{
@@ -75,11 +61,7 @@ func newSearchCmd() *cobra.Command {
 	}
 	cmd.Flags().Int("limit", 20, "maximum results")
 	cmd.Flags().Int("offset", 0, "results offset for paging")
-	cmd.Flags().Bool("remote", false, "only remote jobs (work_mode=remote)")
-	cmd.Flags().StringArray("region", nil, "filter by region: global|ru|cis|central_asia|eu|us (repeatable)")
-	cmd.Flags().StringArray("company", nil, "filter by company slug (repeatable)")
-	cmd.Flags().StringArray("category", nil, "filter by role category: backend|frontend|fullstack|mobile|devops|sre|ml_ai|data_engineering|data_science|data_analytics|qa|security|embedded|design|product|management|marketing|sales|support|... (repeatable)")
-	cmd.Flags().StringArray("seniority", nil, "filter by seniority: intern|junior|middle|senior|staff|principal|lead|c_level (repeatable)")
+	addFacetFlags(cmd)
 	cmd.Flags().StringArray("skills", nil, "filter by skill, e.g. go, react (repeatable)")
 	return cmd
 }
