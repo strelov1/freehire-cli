@@ -119,3 +119,7 @@ for a single invocation (e.g. pointing at a local dev server).
 go test ./...        # unit tests (config + client + cli), no network
 go build ./...
 ```
+
+## License
+
+MIT — see [LICENSE](LICENSE). The freehire backend is MIT too.
