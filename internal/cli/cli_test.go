@@ -168,7 +168,7 @@ func TestSaveAndMy(t *testing.T) {
 	mux.HandleFunc("/api/v1/jobs/go-dev/save", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"data":{"job_id":1,"saved_at":"2026-06-13T00:00:00Z"}}`))
 	})
-	mux.HandleFunc("/api/v1/me/jobs", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/me/tracking", func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Query().Get("filter") != "saved" {
 			t.Errorf("filter = %q, want saved", r.URL.Query().Get("filter"))
 		}
@@ -268,7 +268,7 @@ func TestCompanyCmd(t *testing.T) {
 
 func TestMyShowsStageAndNote(t *testing.T) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/me/jobs", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/v1/me/tracking", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"data":[{"job":{"public_slug":"go-dev","title":"Go Dev","company":"Acme"},"applied_at":"2026-06-13T00:00:00Z","stage":"interview","notes":"recruiter call"}],"meta":{"total":1}}`))
 	})
 	srv := httptest.NewServer(mux)

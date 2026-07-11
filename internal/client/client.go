@@ -159,7 +159,7 @@ func (c *Client) Unsave(ctx context.Context, slug string) (json.RawMessage, erro
 	return env.Data, err
 }
 
-// MyJobs lists the caller's tracked jobs (GET /me/jobs), filtered by
+// MyJobs lists the caller's tracked jobs (GET /me/tracking), filtered by
 // all/viewed/saved/applied.
 func (c *Client) MyJobs(ctx context.Context, filter string, limit, offset int) (Page, error) {
 	q := url.Values{}
@@ -168,7 +168,7 @@ func (c *Client) MyJobs(ctx context.Context, filter string, limit, offset int) (
 	}
 	q.Set("limit", strconv.Itoa(limit))
 	q.Set("offset", strconv.Itoa(offset))
-	env, err := c.do(ctx, http.MethodGet, "/api/v1/me/jobs?"+q.Encode(), nil)
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/me/tracking?"+q.Encode(), nil)
 	if err != nil {
 		return Page{}, err
 	}

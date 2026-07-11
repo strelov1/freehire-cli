@@ -50,7 +50,7 @@ DESIGN.md, README.md, .github/workflows/ci.yml
   - `Search(q, limit, offset, facets)` → `GET /jobs/search` (+ `meta.total`).
   - `GetJob(slug)` → `GET /jobs/:slug`; `GetCompany(slug)` → `GET /companies/:slug`.
   - `Apply`/`Save(slug)` → `POST`; `Unsave(slug)` → `DELETE /jobs/:slug/{apply,save}`.
-  - `MyJobs(filter, limit, offset)` → `GET /me/jobs` (+ `meta.total`).
+  - `MyJobs(filter, limit, offset)` → `GET /me/tracking` (+ `meta.total`).
   - `Track(slug, {stage?, notes?})` → `PATCH /jobs/:slug/track` (partial update;
     a nil field is omitted so the server leaves that column unchanged).
   - `Coverage({skills, facets})` → `POST /market/coverage` (skills in the JSON
