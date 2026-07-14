@@ -33,7 +33,7 @@ func newFacetsCmd() *cobra.Command {
 			"--json for the full machine-readable distribution.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			c, _, err := authedClient(cmd)
+			c, _, err := publicClient(cmd)
 			if err != nil {
 				return err
 			}

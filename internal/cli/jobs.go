@@ -16,7 +16,7 @@ func newSearchCmd() *cobra.Command {
 		Short: "Search jobs by keyword, with optional facet filters",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, _, err := authedClient(cmd)
+			c, _, err := publicClient(cmd)
 			if err != nil {
 				return err
 			}

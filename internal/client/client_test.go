@@ -104,6 +104,29 @@ func TestClient_Search(t *testing.T) {
 	}
 }
 
+func TestClient_NoTokenOmitsAuthHeader(t *testing.T) {
+	var gotAuth string
+	var hadAuth bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/search", func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		_, hadAuth = r.Header["Authorization"]
+		w.Write([]byte(`{"data":[{"public_slug":"go-dev"}],"meta":{"total":1}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	// An empty token is the unauthenticated public-read path: no Authorization
+	// header at all (not an empty "Bearer ").
+	c := New(srv.URL, "", srv.Client())
+	if _, err := c.Search(context.Background(), SearchParams{Query: "go"}); err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if hadAuth {
+		t.Errorf("Authorization header present with empty token: %q", gotAuth)
+	}
+}
+
 func TestClient_GetJobAndApply(t *testing.T) {
 	srv := fakeAPI(t)
 	c := New(srv.URL, "good", srv.Client())

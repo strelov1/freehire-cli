@@ -1,6 +1,7 @@
-// Package client is a thin HTTP client for the freehire API. It authenticates
-// with an API key (Authorization: Bearer) and returns the raw `data` field of
-// each response, so callers can print it verbatim (--json) or decode it.
+// Package client is a thin HTTP client for the freehire API. It attaches an API
+// key (Authorization: Bearer) when one is configured — omitting it for public
+// read endpoints — and returns the raw `data` field of each response, so callers
+// can print it verbatim (--json) or decode it.
 package client
 
 import (
@@ -16,7 +17,7 @@ import (
 )
 
 // Client talks to the freehire API at baseURL, sending the API key as a bearer
-// token on every request.
+// token when one is set (an empty token means unauthenticated public reads).
 type Client struct {
 	baseURL string
 	token   string
@@ -305,7 +306,9 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (e
 	if err != nil {
 		return envelope{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.token)
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
 	req.Header.Set("Accept", "application/json")
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")

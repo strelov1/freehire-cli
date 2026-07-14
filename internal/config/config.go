@@ -96,20 +96,33 @@ func Remove() error {
 	return nil
 }
 
-// Resolve computes the effective token and API URL with precedence
+// ResolveOptional computes the effective token and API URL with precedence
 // env > creds file > default. getenv is injected for testability (pass
-// os.Getenv). The token is required; the URL falls back to DefaultAPIURL.
-func Resolve(getenv func(string) string) (Resolved, error) {
+// os.Getenv). The token is optional (empty when configured nowhere), so public
+// read commands (search, facets, company) can run unauthenticated; the URL falls
+// back to DefaultAPIURL.
+func ResolveOptional(getenv func(string) string) (Resolved, error) {
 	c, err := Load()
 	if err != nil {
 		return Resolved{}, err
 	}
-	token := firstNonEmpty(getenv(EnvToken), c.Token)
-	if token == "" {
+	return Resolved{
+		Token:  firstNonEmpty(getenv(EnvToken), c.Token),
+		APIURL: firstNonEmpty(getenv(EnvAPIURL), c.APIURL, DefaultAPIURL),
+	}, nil
+}
+
+// Resolve is ResolveOptional with the token required: it returns ErrNoToken when
+// none is configured. Used by commands that act as the authenticated user.
+func Resolve(getenv func(string) string) (Resolved, error) {
+	r, err := ResolveOptional(getenv)
+	if err != nil {
+		return Resolved{}, err
+	}
+	if r.Token == "" {
 		return Resolved{}, ErrNoToken
 	}
-	apiURL := firstNonEmpty(getenv(EnvAPIURL), c.APIURL, DefaultAPIURL)
-	return Resolved{Token: token, APIURL: apiURL}, nil
+	return r, nil
 }
 
 func firstNonEmpty(vals ...string) string {

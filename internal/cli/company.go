@@ -15,7 +15,7 @@ func newCompanyCmd() *cobra.Command {
 			"slug shown by `freehire job <slug>` (or `--company <slug>` on search).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, _, err := authedClient(cmd)
+			c, _, err := publicClient(cmd)
 			if err != nil {
 				return err
 			}

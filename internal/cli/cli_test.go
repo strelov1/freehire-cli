@@ -124,11 +124,31 @@ func TestApplyConfirms(t *testing.T) {
 	}
 }
 
-func TestSearchWithoutTokenErrors(t *testing.T) {
+func TestSearchWithoutTokenRunsAnonymously(t *testing.T) {
+	// /jobs/search is a public endpoint, so search must work with no token —
+	// and send no Authorization header rather than an empty "Bearer ".
+	var hadAuth bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/search", func(w http.ResponseWriter, r *http.Request) {
+		_, hadAuth = r.Header["Authorization"]
+		w.Write([]byte(`{"data":[{"public_slug":"go-dev","title":"Go Dev","company":"Acme","location":"Remote"}],"meta":{"total":1}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("FREEHIRE_TOKEN", "")
-	if _, err := run(t, "search", "golang"); err == nil {
-		t.Error("expected an error when no token is configured")
+	t.Setenv("FREEHIRE_API_URL", "")
+
+	out, err := run(t, "search", "golang", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("anonymous search should not error: %v", err)
+	}
+	if !strings.Contains(out, "go-dev") {
+		t.Errorf("search output = %q", out)
+	}
+	if hadAuth {
+		t.Error("anonymous search must not send an Authorization header")
 	}
 }
 
