@@ -89,6 +89,38 @@ func TestResolveDefaultURLAndNoToken(t *testing.T) {
 	}
 }
 
+func TestResolveOptionalNoTokenIsNotError(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+
+	// Nothing configured: ResolveOptional yields an empty token (public reads
+	// run unauthenticated) and the default URL, without ErrNoToken.
+	got, err := ResolveOptional(func(string) string { return "" })
+	if err != nil {
+		t.Fatalf("ResolveOptional: %v", err)
+	}
+	if got.Token != "" {
+		t.Errorf("Token = %q, want empty", got.Token)
+	}
+	if got.APIURL != DefaultAPIURL {
+		t.Errorf("APIURL = %q, want default %q", got.APIURL, DefaultAPIURL)
+	}
+
+	// A configured token is still returned, so an authenticated user's public
+	// reads carry their identity.
+	got, err = ResolveOptional(func(k string) string {
+		if k == EnvToken {
+			return "fhk_x"
+		}
+		return ""
+	})
+	if err != nil {
+		t.Fatalf("ResolveOptional: %v", err)
+	}
+	if got.Token != "fhk_x" {
+		t.Errorf("Token = %q, want fhk_x", got.Token)
+	}
+}
+
 func TestRemove(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	if err := Save(Creds{Token: "x"}); err != nil {

@@ -42,18 +42,37 @@ func newRootCmd() *cobra.Command {
 	return root
 }
 
-// authedClient builds an API client from stored/env credentials, applying the
-// --api-url override. It also returns the effective base URL (for display).
+// authedClient builds an API client from stored/env credentials, requiring a
+// token (ErrNoToken otherwise). Used by commands that act as the user.
 func authedClient(cmd *cobra.Command) (*client.Client, string, error) {
 	r, err := config.Resolve(os.Getenv)
 	if err != nil {
 		return nil, "", err
 	}
+	c, base := clientFor(cmd, r)
+	return c, base, nil
+}
+
+// publicClient builds an API client for unauthenticated public reads (search,
+// facets, company). A configured token is still attached when present, but its
+// absence is not an error — the endpoints are public.
+func publicClient(cmd *cobra.Command) (*client.Client, string, error) {
+	r, err := config.ResolveOptional(os.Getenv)
+	if err != nil {
+		return nil, "", err
+	}
+	c, base := clientFor(cmd, r)
+	return c, base, nil
+}
+
+// clientFor builds the client for a resolved credential, applying the --api-url
+// override. It also returns the effective base URL (for display).
+func clientFor(cmd *cobra.Command, r config.Resolved) (*client.Client, string) {
 	base := r.APIURL
 	if f, _ := cmd.Flags().GetString("api-url"); f != "" {
 		base = f
 	}
-	return client.New(base, r.Token, nil), base, nil
+	return client.New(base, r.Token, nil), base
 }
 
 func wantJSON(cmd *cobra.Command) bool {
