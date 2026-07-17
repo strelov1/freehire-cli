@@ -78,6 +78,43 @@ filter — it takes the same facet flags as `search` to define the role. Use it 
 tell a candidate which in-demand skills they are missing, or to gauge a single
 skill's market demand.
 
+## Tailoring a CV to a vacancy (beta)
+
+After a fit analysis, a tailored CV can be reframed toward a specific vacancy. The
+tailoring session gives you a **CV id**; drive it with these commands (they act as the
+user via the session key):
+
+```bash
+freehire cv context <id>              # the fit analysis to reframe toward (JSON)
+freehire cv get <id>                  # the current CV document (JSON)
+freehire cv edit <id> --patch '<json>'  # apply ONE field-level patch (or pipe on stdin)
+freehire cv render <id> --out cv.pdf  # download the ATS PDF to inspect
+```
+
+A patch is a `cv.Patch` object — one `op` plus its address/payload. Ops:
+`set_summary`, `set_header_field`, `add_bullet`, `replace_bullet`, `remove_bullet`,
+`reorder_bullets`, `set_skill_group`. Examples:
+
+```bash
+freehire cv edit 5 --patch '{"op":"set_summary","value":"Senior backend engineer…"}'
+freehire cv edit 5 --patch '{"op":"add_bullet","experience":0,"value":"Cut p99 latency 40%"}'
+freehire cv edit 5 --patch '{"op":"reorder_bullets","experience":0,"order":[2,0,1]}'
+```
+
+**The honest wall — never fabricate.** Read `cv context` and split the work:
+
+- `missing_have` requirements: the candidate *has* the evidence but the CV omits it —
+  **reframe** an existing bullet toward the vacancy's language (`replace_bullet` /
+  `add_bullet` grounded in what they already did).
+- `missing_gap` requirements: a genuine gap — **ask the candidate first** ("do you know
+  X? how did you use it?"). Only write it after they confirm real experience. On "no",
+  leave it out; a gap belongs in the cover letter, never keyword-stuffed into the CV.
+- A confirmed new fact goes into the tailored CV, and you should offer to also add it to
+  the candidate's base CV (`freehire cv edit <base-id> …`) so future tailoring reuses it.
+
+The server sanitizes and validates every patch; bad addressing is a 422. Re-render after
+meaningful edits and keep the CV to 1–2 pages.
+
 ## Tips for agents
 
 - Prefer `--json` and parse with `jq`; human output is for people.
