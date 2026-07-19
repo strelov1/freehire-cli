@@ -87,8 +87,8 @@ func newCVEditCmd() *cobra.Command {
 			"passed via --patch or on stdin, e.g. " +
 			`'{"op":"add_bullet","experience":0,"value":"Led the migration"}'. Ops: ` +
 			"set_summary, set_header_field, add_bullet, replace_bullet, remove_bullet, " +
-			"reorder_bullets, set_skill_group. The server sanitizes and validates it (a bad " +
-			"patch is a 422).",
+			"reorder_bullets, set_skill_group, set_stack. The server sanitizes and validates it " +
+			"(a bad patch is a 422).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := cvID(args[0])
