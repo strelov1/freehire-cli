@@ -1,0 +1,14 @@
+{
+  "name": "freehire-cli",
+  "owner": {
+    "name": "strelov1",
+    "url": "https://github.com/strelov1"
+  },
+  "plugins": [
+    {
+      "name": "freehire",
+      "source": "./",
+      "description": "The using-freehire agent skill: the discover → search → apply loop over the freehire CLI (facets, market-fit, application tracking, and CV tailoring), all with machine-readable --json output."
+    }
+  ]
+}

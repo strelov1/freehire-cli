@@ -99,8 +99,14 @@ code signals failure (e.g. an unauthenticated call exits non-zero with
 `run \`freehire auth login\``).
 
 An agent **skill** ships in [`skills/using-freehire/SKILL.md`](skills/using-freehire/SKILL.md):
-drop it into a Claude Code (or compatible) skills directory and the agent learns the
-discover → search → apply loop, including `facets` and `market-fit`.
+it teaches the discover → search → apply loop, including `facets` and `market-fit`.
+Drop it into a Claude Code (or compatible) skills directory, or install this repo as a
+**Claude Code plugin** to get the skill wired up automatically:
+
+```
+/plugin marketplace add strelov1/freehire-cli
+/plugin install freehire@freehire-cli
+```
 
 ## Configuration
 
