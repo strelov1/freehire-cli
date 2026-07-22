@@ -1,0 +1,13 @@
+{
+  "name": "freehire",
+  "version": "0.1.0",
+  "description": "Search, filter, measure your skills against, and apply to IT jobs from the terminal via the freehire CLI.",
+  "author": {
+    "name": "strelov1",
+    "url": "https://github.com/strelov1"
+  },
+  "homepage": "https://freehire.dev/cli",
+  "repository": "https://github.com/strelov1/freehire-cli",
+  "license": "MIT",
+  "keywords": ["jobs", "ats", "cli", "freehire", "job-search"]
+}
