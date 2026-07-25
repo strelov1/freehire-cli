@@ -12,7 +12,7 @@ import (
 
 const (
 	// DefaultAPIURL is the production API base when none is configured.
-	DefaultAPIURL = "https://freehire.dev"
+	DefaultAPIURL = "https://freehire.me"
 
 	// EnvToken / EnvAPIURL override the stored credentials.
 	EnvToken  = "FREEHIRE_TOKEN"

@@ -21,7 +21,7 @@ func fakeAPI(t *testing.T) *httptest.Server {
 		io := `{"data":{"id":7,"email":"agent@example.test"}}`
 		w.Write([]byte(io))
 	})
-	mux.HandleFunc("/api/v1/jobs/search", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/agent/jobs/search", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		if q.Get("q") != "golang" {
 			t.Errorf("search q = %q, want golang", q.Get("q"))
@@ -31,6 +31,14 @@ func fakeAPI(t *testing.T) *httptest.Server {
 		}
 		if regions := q["regions"]; len(regions) != 2 || regions[0] != "eu" || regions[1] != "us" {
 			t.Errorf("regions = %v, want [eu us]", regions)
+		}
+		// Search always asks the agent endpoint for full descriptions, rendered
+		// as markdown rather than the stored HTML.
+		if q.Get("include_description") != "true" {
+			t.Errorf("include_description = %q, want true", q.Get("include_description"))
+		}
+		if q.Get("description_format") != "markdown" {
+			t.Errorf("description_format = %q, want markdown", q.Get("description_format"))
 		}
 		w.Write([]byte(`{"data":[{"public_slug":"go-dev","title":"Go Dev"}],"meta":{"total":42}}`))
 	})
@@ -108,7 +116,7 @@ func TestClient_NoTokenOmitsAuthHeader(t *testing.T) {
 	var gotAuth string
 	var hadAuth bool
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/jobs/search", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/agent/jobs/search", func(w http.ResponseWriter, r *http.Request) {
 		gotAuth = r.Header.Get("Authorization")
 		_, hadAuth = r.Header["Authorization"]
 		w.Write([]byte(`{"data":[{"public_slug":"go-dev"}],"meta":{"total":1}}`))

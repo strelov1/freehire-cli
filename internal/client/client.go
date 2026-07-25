@@ -78,7 +78,12 @@ func (c *Client) Me(ctx context.Context) (json.RawMessage, error) {
 	return env.Data, err
 }
 
-// Search runs a keyword job search with optional facet filters (GET /jobs/search).
+// Search runs a keyword job search with optional facet filters
+// (GET /agent/jobs/search). That endpoint runs the same query as the web's
+// /jobs/search but, for programmatic consumers, replaces the index's truncated
+// preview with each job's full description — so a caller reads a result set
+// without a follow-up GetJob per hit. Markdown keeps the posting's lists and
+// headings readable both in an agent's context and in the terminal.
 func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	q := url.Values{}
 	for k, vs := range p.Facets {
@@ -90,7 +95,9 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	q.Set("limit", strconv.Itoa(p.Limit))
 	q.Set("offset", strconv.Itoa(p.Offset))
 	q.Set("semantic_ratio", "0") // keyword search, matching the web client
-	env, err := c.do(ctx, http.MethodGet, "/api/v1/jobs/search?"+q.Encode(), nil)
+	q.Set("include_description", "true")
+	q.Set("description_format", "markdown")
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/agent/jobs/search?"+q.Encode(), nil)
 	if err != nil {
 		return Page{}, err
 	}
