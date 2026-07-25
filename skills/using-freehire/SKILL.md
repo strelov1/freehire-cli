@@ -5,7 +5,7 @@ description: Use when searching, filtering, or applying to IT jobs from the term
 
 # Using the freehire CLI
 
-`freehire` is a single static binary over the [freehire.dev](https://freehire.dev)
+`freehire` is a single static binary over the [freehire.me](https://freehire.me)
 job API. It lets an agent search, filter, and apply to IT jobs without a browser,
 authenticating with a personal API key. Every command supports `--json` for a raw,
 faithful API payload (pipe to `jq`).
@@ -48,6 +48,10 @@ Named flags: `--remote --region --country --city --company --category --role
 --seniority --employment-type --english-level --salary-min --visa` (each repeatable).
 `--facet key=value` reaches any other facet in the vocabulary. `--skills` here is a
 *filter* (jobs listing the skill). `--limit`/`--offset` page.
+
+`--json search` returns each hit's **full description as markdown**, so you can
+screen a result set in one call — reach for `job <slug>` only when you need a
+single posting's other detail. Keep `--limit` small when you read descriptions.
 
 **3. Open, apply, track.**
 

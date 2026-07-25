@@ -1,8 +1,8 @@
 #!/bin/sh
 # Install the freehire CLI: download the prebuilt binary for this OS/arch from the
 # latest GitHub release and place it on PATH.
-#   curl -fsSL https://freehire.dev/install.sh | sh
-# (freehire.dev serves this same script; the raw GitHub URL also works.)
+#   curl -fsSL https://freehire.me/install.sh | sh
+# (freehire.me serves this same script; the raw GitHub URL also works.)
 set -eu
 
 REPO="strelov1/freehire-cli"
@@ -41,4 +41,4 @@ fi
 trap - EXIT
 
 echo "Installed ${BIN} → ${target}"
-echo "Next: ${BIN} auth login --token fhk_…    (create a key at https://freehire.dev → API keys)"
+echo "Next: ${BIN} auth login --token fhk_…    (create a key at https://freehire.me → API keys)"

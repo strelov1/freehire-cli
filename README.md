@@ -1,6 +1,6 @@
 # freehire CLI
 
-A small Go CLI over the [freehire](https://freehire.dev) job API — built so an
+A small Go CLI over the [freehire](https://freehire.me) job API — built so an
 **agent** (or a human) can search, open, and apply to jobs from the terminal,
 without a browser. Authenticate once with a personal API key; the key is stored
 in `~/.freehire/creds.json`.
@@ -10,7 +10,7 @@ in `~/.freehire/creds.json`.
 **curl** (prebuilt binary, no Go needed):
 
 ```bash
-curl -fsSL https://freehire.dev/install.sh | sh
+curl -fsSL https://freehire.me/install.sh | sh
 ```
 
 **Go:**
@@ -21,12 +21,12 @@ go install github.com/strelov1/freehire-cli/cmd/freehire@latest   # installs the
 
 ## Authenticate
 
-Create an API key in the web app (freehire.dev → account menu → **API keys**),
+Create an API key in the web app (freehire.me → account menu → **API keys**),
 then:
 
 ```bash
 freehire auth login --token fhk_xxxxxxxx   # validates the key and stores it
-freehire auth status                       # Authenticated as you@example.com @ https://freehire.dev
+freehire auth status                       # Authenticated as you@example.com @ https://freehire.me
 freehire auth logout                       # removes ~/.freehire/creds.json
 ```
 
@@ -91,8 +91,14 @@ Pass `--json` for the raw API payload (faithful to the API; ideal for piping):
 
 ```bash
 freehire --json search "site reliability" --limit 5 | jq '.[].public_slug'
+freehire --json search "golang" --limit 3 | jq -r '.[].description'   # full postings, no extra call
 freehire --json job <slug> | jq '{title, url}'
 ```
+
+`search` reads the API's agent endpoint, so every hit already carries the job's
+**full description as markdown** — an agent can judge a result set without a
+`job <slug>` call per hit. The human table view stays compact (title · company ·
+location · slug); the descriptions are in the `--json` payload.
 
 Conventions: results go to **stdout**, errors to **stderr**, and a non-zero exit
 code signals failure (e.g. an unauthenticated call exits non-zero with
@@ -113,7 +119,7 @@ Drop it into a Claude Code (or compatible) skills directory, or install this rep
 | What | Source (precedence: env → creds file → default) |
 |------|--------------------------------------------------|
 | Token | `FREEHIRE_TOKEN` → `~/.freehire/creds.json` |
-| API base URL | `FREEHIRE_API_URL` → creds file → `https://freehire.dev` |
+| API base URL | `FREEHIRE_API_URL` → creds file → `https://freehire.me` |
 
 The token can be supplied entirely via `FREEHIRE_TOKEN` (no stored file needed),
 which suits CI and ephemeral agent sandboxes. `--api-url` overrides the base URL

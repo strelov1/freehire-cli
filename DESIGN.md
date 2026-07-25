@@ -1,6 +1,6 @@
 # freehire-cli — design
 
-A small Go CLI that lets agents (and humans) use the [freehire](https://freehire.dev)
+A small Go CLI that lets agents (and humans) use the [freehire](https://freehire.me)
 API without a browser, authenticating with a personal API key. The key is stored
 in `~/.freehire/creds.json`.
 
@@ -32,7 +32,7 @@ DESIGN.md, README.md, .github/workflows/ci.yml
 ## Config & auth (`config`)
 
 - Effective token + API URL resolve with precedence: **env (`FREEHIRE_TOKEN` /
-  `FREEHIRE_API_URL`) > `~/.freehire/creds.json` > default `https://freehire.dev`**.
+  `FREEHIRE_API_URL`) > `~/.freehire/creds.json` > default `https://freehire.me`**.
   The token is required (else a "run `freehire auth login`" error).
 - `creds.json` = `{"token":"fhk_…","api_url":"…"}`, file mode `0600`, dir `0700`.
 - `Load` (missing file → zero, no error), `Save`, `Remove`, `Resolve(getenv)`.
@@ -47,7 +47,12 @@ DESIGN.md, README.md, .github/workflows/ci.yml
 - Methods return the raw `data` (so `--json` is faithful to the API) and the cli
   decodes typed structs for human output:
   - `Me` → `GET /auth/me` (whoami; works by key).
-  - `Search(q, limit, offset, facets)` → `GET /jobs/search` (+ `meta.total`).
+  - `Search(q, limit, offset, facets)` → `GET /agent/jobs/search` (+ `meta.total`)
+    — the programmatic variant of the web's `/jobs/search`: same query, but each
+    hit carries the job's full description instead of the index's truncated
+    preview. Always requested as markdown (`include_description=true`,
+    `description_format=markdown`), so a result set is readable without a
+    follow-up `GetJob` per hit.
   - `GetJob(slug)` → `GET /jobs/:slug`; `GetCompany(slug)` → `GET /companies/:slug`.
   - `Apply`/`Save(slug)` → `POST`; `Unsave(slug)` → `DELETE /jobs/:slug/{apply,save}`.
   - `MyJobs(filter, limit, offset)` → `GET /me/tracking` (+ `meta.total`).
@@ -79,7 +84,8 @@ param in the API vocabulary. `--skills` is intentionally NOT shared: it filters 
   skills vocabulary and numeric stat ranges); the discovery step so an agent picks
   real values. Count-descending, `--top` caps per-facet values; or raw `--json`.
 - `freehire search <query> [--limit --offset <facet flags> --skills]` —
-  table (title · company · location · slug) or raw `--json`.
+  table (title · company · location · slug) or raw `--json`; the `--json` payload
+  also carries each hit's full description as markdown.
 - `freehire market-fit --skills <s,…> [<facet flags>]` — market coverage for the
   skill list: `Coverage: N% (covered/total)`, must-have held, and the biggest
   missing-skill gaps; or raw `--json`. One `--skills` value probes a single skill.

@@ -19,7 +19,7 @@ func fakeAPI(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/api/v1/auth/me", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"data":{"id":7,"email":"agent@example.test"}}`))
 	})
-	mux.HandleFunc("/api/v1/jobs/search", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/v1/agent/jobs/search", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"data":[{"public_slug":"go-dev","title":"Go Dev","company":"Acme","location":"Remote"}],"meta":{"total":42}}`))
 	})
 	mux.HandleFunc("/api/v1/jobs/go-dev/apply", func(w http.ResponseWriter, _ *http.Request) {
@@ -125,11 +125,11 @@ func TestApplyConfirms(t *testing.T) {
 }
 
 func TestSearchWithoutTokenRunsAnonymously(t *testing.T) {
-	// /jobs/search is a public endpoint, so search must work with no token —
+	// /agent/jobs/search is a public endpoint, so search must work with no token —
 	// and send no Authorization header rather than an empty "Bearer ".
 	var hadAuth bool
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/jobs/search", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/agent/jobs/search", func(w http.ResponseWriter, r *http.Request) {
 		_, hadAuth = r.Header["Authorization"]
 		w.Write([]byte(`{"data":[{"public_slug":"go-dev","title":"Go Dev","company":"Acme","location":"Remote"}],"meta":{"total":1}}`))
 	})
