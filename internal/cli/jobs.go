@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/spf13/cobra"
 
@@ -120,12 +121,16 @@ func newApplyCmd() *cobra.Command {
 	}
 }
 
-// trunc shortens s to at most n bytes, appending an ellipsis when it cuts.
+// trunc shortens s to at most n runes, appending an ellipsis when it cuts.
+// Counting runes rather than bytes matters twice over for non-ASCII output: a
+// byte cut splits a multi-byte rune into mojibake, and fmt's column widths
+// ("%-40s") are themselves measured in runes, so only a rune count keeps the
+// table aligned.
 func trunc(s string, n int) string {
-	if len(s) <= n {
+	if utf8.RuneCountInString(s) <= n {
 		return s
 	}
-	return s[:n-1] + "…"
+	return string([]rune(s)[:n-1]) + "…"
 }
 
 func newSaveCmd() *cobra.Command {

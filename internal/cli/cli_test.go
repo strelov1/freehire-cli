@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/strelov1/freehire-cli/internal/config"
 )
@@ -446,5 +447,34 @@ func TestFacetsListsValuesAndStats(t *testing.T) {
 	}
 	if !strings.Contains(out, "1234 open vacancies") || !strings.Contains(out, "salary_min:") {
 		t.Errorf("human output missing total/stats: %q", out)
+	}
+}
+
+func TestTruncCountsRunesNotBytes(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		n    int
+		want string
+	}{
+		{"shorter than limit is untouched", "Acme", 10, "Acme"},
+		{"exactly the limit is untouched", "Acme", 4, "Acme"},
+		{"ascii cut keeps n runes", "Senior Go Developer", 10, "Senior Go…"},
+		// A byte-wise cut would split a two-byte Cyrillic rune and print U+FFFD.
+		{"cyrillic cut lands on a rune boundary", "Ярослав Иванов", 8, "Ярослав…"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := trunc(c.in, c.n)
+			if got != c.want {
+				t.Errorf("trunc(%q, %d) = %q, want %q", c.in, c.n, got, c.want)
+			}
+			if !utf8.ValidString(got) {
+				t.Errorf("trunc(%q, %d) = %q, not valid UTF-8", c.in, c.n, got)
+			}
+			if n := utf8.RuneCountInString(got); n > c.n {
+				t.Errorf("trunc(%q, %d) has %d runes, want at most %d", c.in, c.n, n, c.n)
+			}
+		})
 	}
 }
