@@ -6,3 +6,6 @@
 
 # Local runner build
 /freehire
+
+# Git worktrees for isolated feature development.
+/.worktrees/
