@@ -29,6 +29,68 @@ internal/
 DESIGN.md, README.md, .github/workflows/ci.yml
 ```
 
+## `runner` — running the assistant's harness locally (BYOK)
+
+`freehire runner` connects this machine to the freehire assistant and runs its
+coding harness here, so the user's model-provider credential never reaches
+freehire's servers. The session, its journal and the UI stay on the server; only
+the harness process is local.
+
+```
+this machine                              agent.freehire.dev
+┌──────────────────────┐                 ┌────────────────────────────┐
+│ freehire runner      │─ WS /runners/ws▶│ authenticates, bridges to   │
+│  claude-code-acp     │                 │ the session daemon          │
+│  your credentials    │◀── agent ───────│ journal, scheduling, UI     │
+└──────────────────────┘    protocol     └────────────────────────────┘
+```
+
+**Getting in.** The runner exchanges the stored `fhk_…` key for a short-lived
+session token (`POST /auth/runner-token`), which the server issues after asking
+freehire whose key it is. The user never sees an account id: handing them one
+would invite a typo that routes their sessions to someone else's machine.
+
+**Staying safe — what the server may and may not say.** The server names a
+harness from a set this binary knows (`harness.go`); it never describes a
+process. No command path, no argv, no settings file, and the environment it may
+add is allowlisted server-side. A compromised server must not become code
+execution on a user's laptop, so `LookupHarness` matches exactly — no trimming,
+no case folding, no path handling, because each of those turns a near-miss into
+a match.
+
+**Layout.**
+
+```
+internal/runner/
+  device.go    stable per-machine id (~/.freehire/runner-id), survives restarts
+  harness.go   the allowlist: identifier → command, args, env to strip
+  tunnel.go    wire types mirroring the server's tunnel protocol (version 2)
+  token.go     fhk_ key → short-lived session token
+  link.go      the WebSocket, and the registration that opens it
+  session.go   one harness per stream over one connection
+  process.go   os/exec plumbing: line framing, env merge, process-group kill
+  runner.go    connect, serve, reconnect with capped jittered backoff
+```
+
+`session.go` is written against two interfaces — a `link` and a `process` — so
+its behaviour is tested without a WebSocket or a real binary.
+
+**Things learned the hard way**, each now covered by a test:
+
+- The working directory must come from *this* side. The server's workspace path
+  does not exist here, and a harness handed one dies opening it. The runner
+  creates a scratch dir per session and names it in `opened`.
+- `CLAUDECODE` must be stripped: Claude Code refuses to start inside another
+  Claude Code session, which a developer running this from one inherits.
+- The harness's exit must be reported. Without it the server waits on a stream
+  that will never produce again, and a turn hangs instead of failing.
+- Killing must signal the process group; claude-code-acp spawns children.
+
+**Deliberately absent:** no queueing while offline (a session that cannot reach
+its device fails and the caller retries), no mid-turn reconnect (the agent
+protocol has no resumable turn), and no persisted token (short-lived, re-minted
+on start).
+
 ## Config & auth (`config`)
 
 - Effective token + API URL resolve with precedence: **env (`FREEHIRE_TOKEN` /

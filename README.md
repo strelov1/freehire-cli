@@ -85,6 +85,98 @@ the job is flagged as manually added (that comes from the moderator authorship).
 is stored and rendered as HTML, so pass HTML markup. The URL is the dedup key — re-running `add`
 with the same URL updates the posting.
 
+## Bring your own Claude (BYOK)
+
+The freehire assistant normally runs its coding harness on freehire's servers.
+`freehire runner` lets it run on **your** machine instead, using **your** Claude
+subscription — your model credentials never leave your computer.
+
+```bash
+freehire runner
+```
+
+Leave it running and use the assistant at
+[freehire.me/my/assistant](https://freehire.me/my/assistant) as usual. New
+sessions are routed to your machine automatically. Stop with Ctrl-C and they go
+back to being server-hosted.
+
+**What you need:** the harness binary, installed and logged in.
+
+```bash
+npm i -g @zed-industries/claude-code-acp   # the harness
+claude                                     # log in to Claude Code once
+```
+
+### What actually runs where
+
+| On your machine | On freehire's servers |
+|---|---|
+| Claude Code and your credentials | the conversation and its history |
+| the model's answers | scheduling, the web UI, your CV and job data |
+| a scratch directory per session | which device a session belongs to |
+
+Your Claude credentials are never sent anywhere. The server asks your machine to
+start a harness and exchanges the agent protocol with it; the model runs here.
+
+### Why you might want this
+
+- **Your credentials stay yours.** freehire never stores your Claude token.
+- **Your subscription, your limits.** Turns are billed to your Claude account.
+
+### Why you might not
+
+- **It only works while the runner runs.** Close the laptop and the assistant
+  has nowhere to run; sessions fail until it is back. Nothing queues up.
+- **Less isolation than the server has.** freehire's own host restricts what an
+  agent can reach on the network. We cannot do that on your machine, so the
+  runner instead confines the agent to `freehire` commands only.
+
+### Seeing what it is doing
+
+The runner reports every request it gets:
+
+```
+device 63723d49c78481eac2da6b66208a4a7c offering [claude]
+connected to https://agent.freehire.dev — waiting for sessions
+session 0: server asked for harness "claude"
+session 0: started claude-code-acp in ~/.freehire/runner/sessions/0
+session 0: harness exited (code 0) after 42 messages
+```
+
+Add `--verbose` to log every protocol message — useful when a turn misbehaves,
+noisy otherwise (one turn is hundreds of them).
+
+If nothing appears when you send a message, the session was probably created
+before the runner connected: routing is decided once, when a session starts.
+Begin a new one.
+
+### What the agent may do on your machine
+
+The runner writes a Claude Code config into each session directory that confines
+the agent hard:
+
+- **allowed:** `freehire …` commands, skills
+- **denied:** editing or writing files, `Task`, `Glob`, `Grep`, `LS`, and —
+  unlike on freehire's servers — `WebFetch` and `WebSearch`
+
+The allow-list alone is not a boundary: it does not see `$(…)`, `;`, pipes or
+redirection. So a `PreToolUse` hook (`freehire bash-guard`) inspects every Bash
+command and denies anything that is not a single clean `freehire` invocation.
+
+`WebFetch`/`WebSearch` stay enabled on freehire's own servers because that host
+allowlists outbound traffic, so a successful prompt injection reaches nothing.
+Your laptop has no such layer, and the agent reads untrusted text — job
+postings — for a living. `freehire` is the only way out here.
+
+### Notes
+
+- Your device gets a stable id in `~/.freehire/runner-id`, so a session can find
+  the same machine again after a reconnect.
+- Sessions work in `~/.freehire/runner/sessions/<n>/`. It is scratch space —
+  your CV, applications and history live on the server.
+- The runner authenticates with the API key you already stored; there is nothing
+  extra to configure.
+
 ## For agents
 
 Pass `--json` for the raw API payload (faithful to the API; ideal for piping):
@@ -120,6 +212,8 @@ Drop it into a Claude Code (or compatible) skills directory, or install this rep
 |------|--------------------------------------------------|
 | Token | `FREEHIRE_TOKEN` → `~/.freehire/creds.json` |
 | API base URL | `FREEHIRE_API_URL` → creds file → `https://freehire.me` |
+| Assistant server (`runner`) | `--server` → `https://agent.freehire.dev` |
+| Device id (`runner`) | `~/.freehire/runner-id`, generated on first run |
 
 The token can be supplied entirely via `FREEHIRE_TOKEN` (no stored file needed),
 which suits CI and ephemeral agent sandboxes. `--api-url` overrides the base URL
