@@ -12,7 +12,11 @@ package runner
 // TunnelVersion is the protocol this runner speaks. The server refuses a
 // mismatch at registration rather than later on an unknown message, so a stale
 // binary fails with something a user can act on.
-const TunnelVersion = 1
+//
+// v2 added Opened.Cwd: the device names the session's working directory. The
+// server's own path does not exist here, and a harness handed one dies opening
+// it.
+const TunnelVersion = 2
 
 // Message types, matching the server's `#[serde(tag = "t")]` names.
 const (
@@ -42,13 +46,18 @@ type Message struct {
 	// OpenFailed only: why the harness did not start.
 	Reason string `json:"reason,omitempty"`
 
+	// Opened only: the directory the harness is working in, chosen here.
+	Cwd string `json:"cwd,omitempty"`
+
 	// Closed only: the harness's exit code.
 	Code *int `json:"code,omitempty"`
 }
 
-// Opened reports that the harness started and the stream is live.
-func Opened(stream uint64) Message {
-	return Message{Type: MsgOpened, StreamID: stream}
+// Opened reports that the harness started, and in which directory. The server
+// uses that path for the session rather than its own, which does not exist on
+// this machine.
+func Opened(stream uint64, cwd string) Message {
+	return Message{Type: MsgOpened, StreamID: stream, Cwd: cwd}
 }
 
 // OpenFailed reports that the harness did not start, and why. The reason

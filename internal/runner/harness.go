@@ -13,6 +13,10 @@ type Harness struct {
 	Command string
 	// Args is the fixed argument vector. Never extended from the wire.
 	Args []string
+	// Dir is where the process runs. Filled in per session by this runner, not
+	// by the server: the server's workspace path does not exist on this
+	// machine, and a harness handed one dies opening it.
+	Dir string
 }
 
 // harnesses is the entire allowlist. Keys are the identifiers the server may

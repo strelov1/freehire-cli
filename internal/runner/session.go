@@ -2,6 +2,9 @@ package runner
 
 import (
 	"context"
+	"fmt"
+	"os"
+	"path/filepath"
 	"sync"
 )
 
@@ -71,6 +74,13 @@ func (s *sessions) handleOpen(ctx context.Context, msg Message) {
 		_ = s.link.Send(ctx, OpenFailed(msg.StreamID, "unknown harness: "+msg.Harness))
 		return
 	}
+	dir, err := sessionDir(msg.StreamID)
+	if err != nil {
+		_ = s.link.Send(ctx, OpenFailed(msg.StreamID, "preparing a working directory: "+err.Error()))
+		return
+	}
+	harness.Dir = dir
+
 	proc, err := s.spawn(harness, msg.Env)
 	if err != nil {
 		// The user's own reason, not a category: "not found in $PATH" is
@@ -83,7 +93,7 @@ func (s *sessions) handleOpen(ctx context.Context, msg Message) {
 	s.open[msg.StreamID] = proc
 	s.mu.Unlock()
 
-	if err := s.link.Send(ctx, Opened(msg.StreamID)); err != nil {
+	if err := s.link.Send(ctx, Opened(msg.StreamID, dir)); err != nil {
 		s.handleClose(msg.StreamID)
 		return
 	}
@@ -130,6 +140,24 @@ func (s *sessions) handleClose(stream uint64) {
 	if ok {
 		proc.Kill()
 	}
+}
+
+// sessionDir is where a session's harness works: a scratch directory under the
+// user's home, one per stream.
+//
+// It is scratch on purpose. Everything durable — the CV, the vacancy, the
+// conversation — lives on the server and is reached through the `freehire`
+// CLI, so nothing here needs to survive the session.
+func sessionDir(stream uint64) (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	dir := filepath.Join(home, dirName, "runner", "sessions", fmt.Sprint(stream))
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return "", err
+	}
+	return dir, nil
 }
 
 func (s *sessions) shutdown() {

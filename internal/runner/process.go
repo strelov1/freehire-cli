@@ -33,6 +33,7 @@ type execProcess struct {
 // is a small allowlisted addition, not a sandbox.
 func startProcess(h Harness, env map[string]string) (process, error) {
 	cmd := exec.Command(h.Command, h.Args...)
+	cmd.Dir = h.Dir
 	cmd.Env = os.Environ()
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)

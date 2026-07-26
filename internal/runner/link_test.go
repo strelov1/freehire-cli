@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -82,7 +83,10 @@ func TestDialRegistersTheDeviceAsItsFirstMessage(t *testing.T) {
 	defer l.Close()
 
 	path := <-srv.gotPath
-	for _, want := range []string{"/runners/ws", "device_id=laptop", "version=1", "harnesses=claude"} {
+	for _, want := range []string{
+		"/runners/ws", "device_id=laptop",
+		fmt.Sprintf("version=%d", TunnelVersion), "harnesses=claude",
+	} {
 		if !strings.Contains(path, want) {
 			t.Errorf("upgrade path missing %q: %s", want, path)
 		}

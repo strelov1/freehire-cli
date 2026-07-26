@@ -3,6 +3,8 @@ package runner
 import (
 	"context"
 	"errors"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -301,5 +303,76 @@ func TestLosingTheLinkKillsEveryHarness(t *testing.T) {
 			t.Fatal("a lost link must tear down running harnesses")
 		}
 		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestTheRunnerNamesAWorkingDirectoryThatExists(t *testing.T) {
+	// Found by running a real harness against prod: the server was sending its
+	// own workspace path, which does not exist here, and claude-code-acp died
+	// opening it. The directory must be created on this side and named back.
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+
+	link := newFakeLink()
+	var spawnCwd string
+	r := newSessions(link, func(h Harness, env map[string]string) (process, error) {
+		spawnCwd = h.Dir
+		return newFakeProc(), nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.run(ctx)
+
+	link.in <- Message{Type: MsgOpen, StreamID: 11, Harness: "claude"}
+
+	got := link.waitFor(t, "opened", func(ms []Message) bool {
+		return len(ms) > 0 && ms[0].Type == MsgOpened
+	})
+	if got[0].Cwd == "" {
+		t.Fatal("opened must name a working directory")
+	}
+	info, err := os.Stat(got[0].Cwd)
+	if err != nil || !info.IsDir() {
+		t.Fatalf("the named directory must exist: %v", err)
+	}
+	if !strings.HasPrefix(got[0].Cwd, home) {
+		t.Fatalf("the session directory must live under the user's home, got %q", got[0].Cwd)
+	}
+	if spawnCwd != got[0].Cwd {
+		t.Fatalf("the harness must run in the directory we named: spawned in %q, told the server %q",
+			spawnCwd, got[0].Cwd)
+	}
+}
+
+func TestSessionDirectoriesAreDistinctPerStream(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	link := newFakeLink()
+	r := newSessions(link, func(Harness, map[string]string) (process, error) {
+		return newFakeProc(), nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.run(ctx)
+
+	link.in <- Message{Type: MsgOpen, StreamID: 21, Harness: "claude"}
+	link.in <- Message{Type: MsgOpen, StreamID: 22, Harness: "claude"}
+
+	ms := link.waitFor(t, "two opens", func(ms []Message) bool {
+		n := 0
+		for _, m := range ms {
+			if m.Type == MsgOpened {
+				n++
+			}
+		}
+		return n == 2
+	})
+	var dirs []string
+	for _, m := range ms {
+		if m.Type == MsgOpened {
+			dirs = append(dirs, m.Cwd)
+		}
+	}
+	if dirs[0] == dirs[1] {
+		t.Fatalf("concurrent sessions must not share a directory: %q", dirs[0])
 	}
 }

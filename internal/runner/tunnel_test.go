@@ -2,6 +2,7 @@ package runner
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -66,7 +67,7 @@ func TestRunnerMessagesEncodeToTheServersShape(t *testing.T) {
 		msg   Message
 		wants []string
 	}{
-		{"opened", Opened(7), []string{`"t":"opened"`, `"stream_id":7`}},
+		{"opened", Opened(7, "/home/u/.freehire/runner/sessions/7"), []string{`"t":"opened"`, `"stream_id":7`, `"cwd":"/home/u/.freehire/runner/sessions/7"`}},
 		{"open_failed", OpenFailed(7, "claude-code-acp not found on PATH"), []string{
 			`"t":"open_failed"`, `"reason":"claude-code-acp not found on PATH"`,
 		}},
@@ -91,7 +92,7 @@ func TestRunnerMessagesEncodeToTheServersShape(t *testing.T) {
 func TestEmptyFieldsAreOmitted(t *testing.T) {
 	// The server's enum has no room for fields a variant does not carry, so a
 	// stray key would fail to decode there.
-	b, _ := json.Marshal(Opened(3))
+	b, _ := json.Marshal(Opened(3, ""))
 	for _, absent := range []string{"harness", "data", "reason", "env", "code"} {
 		if strings.Contains(string(b), absent) {
 			t.Errorf("opened must not carry %q: %s", absent, b)
@@ -109,7 +110,7 @@ func TestRegistrationMatchesTheServersCommand(t *testing.T) {
 	for _, want := range []string{
 		`"op":"register_runner"`,
 		`"runner_id":"dev-1"`,
-		`"version":1`,
+		fmt.Sprintf(`"version":%d`, TunnelVersion),
 		`"harnesses":["claude"]`,
 	} {
 		if !strings.Contains(string(b), want) {
