@@ -13,13 +13,12 @@ set -euo pipefail
 
 HOST="${HOST:-root@89.167.94.146}"
 SERVER="${SERVER:-https://agent.freehire.dev}"
-USER_ID="${USER_ID:-9700a722-3d78-49dc-a767-05981799a379}"
 PROMPT="${PROMPT:-Reply with exactly three words.}"
 
 cd "$(dirname "$0")"
 say() { printf '\n\033[1m== %s\033[0m\n' "$1"; }
 
-say "0/5  checking prerequisites"
+say "0/4  checking prerequisites"
 command -v claude-code-acp >/dev/null || {
   echo "claude-code-acp is not on PATH — install it first: npm i -g @zed-industries/claude-code-acp"
   exit 1
@@ -30,25 +29,13 @@ if [ -n "${CLAUDECODE:-}" ]; then
   echo "If the turn fails with 'Authentication required', rerun from a plain terminal."
 fi
 
-say "1/5  building the runner"
+say "1/4  building the runner"
 go build -o /tmp/freehire-runner ./cmd/freehire
 echo "ok"
 
-say "2/5  minting a session token"
-# Temporary: freehire will hand runners a token once it exchanges fhk_ keys for
-# one. Until then we sign it on the server with the same secret management uses.
-JWT=$(ssh -o ConnectTimeout=10 "$HOST" "S=\$(grep '^ROY_JWT_SECRET=' /opt/freehire/env/agent.env | cut -d= -f2-)
-python3 -c \"
-import jwt, time
-n = int(time.time())
-print(jwt.encode({'sub': '$USER_ID', 'iat': n, 'exp': n + 3600}, '\$S', algorithm='HS256'))
-\"")
-[ -n "$JWT" ] || { echo "could not mint a token"; exit 1; }
-echo "ok"
-
-say "3/5  connecting this machine"
+say "2/4  connecting this machine"
 LOG=$(mktemp)
-ROY_RUNNER_TOKEN="$JWT" /tmp/freehire-runner runner --server "$SERVER" >"$LOG" 2>&1 &
+/tmp/freehire-runner runner --server "$SERVER" >"$LOG" 2>&1 &
 RUNNER_PID=$!
 cleanup() {
   kill "$RUNNER_PID" 2>/dev/null || true
@@ -71,7 +58,10 @@ grep -q "connected to" "$LOG" || { echo "runner never connected:"; cat "$LOG"; e
 DEVICE=$(sed -n 's/^device \([a-f0-9]*\) .*/\1/p' "$LOG" | head -1)
 echo "connected as device $DEVICE"
 
-say "4/5  opening a session on this device"
+say "3/4  opening a session on this device"
+KEY=$(python3 -c "import json;print(json.load(open('$HOME/.freehire/creds.json'))['token'])")
+JWT=$(curl -sS -X POST "$SERVER/auth/runner-token" -H "Authorization: Bearer $KEY" |
+  python3 -c "import json,sys;print(json.load(sys.stdin)['token'])")
 RESP=$(curl -sS -X POST "$SERVER/sessions" \
   -H 'content-type: application/json' -H "Cookie: hire_token=$JWT" \
   -d "{\"harness\":\"claude\",\"device_id\":\"$DEVICE\"}")
@@ -79,7 +69,7 @@ SESSION=$(printf '%s' "$RESP" | sed -n 's/.*"session_id":"\([^"]*\)".*/\1/p')
 [ -n "$SESSION" ] || { echo "session was refused: $RESP"; echo "--- runner log ---"; cat "$LOG"; exit 1; }
 echo "session $SESSION — your local claude-code-acp is now running it"
 
-say "5/5  asking it something"
+say "4/4  asking it something"
 ssh -o ConnectTimeout=20 "$HOST" "sudo -u freehire python3 - <<PY
 import socket, json, time
 s = socket.socket(socket.AF_UNIX); s.connect('/run/freehire-agent/daemon.sock')

@@ -10,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/strelov1/freehire-cli/internal/config"
 	"github.com/strelov1/freehire-cli/internal/runner"
 )
 
@@ -31,11 +32,24 @@ func newRunnerCmd() *cobra.Command {
 			"The harness binary (claude-code-acp) must be installed and logged in.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			server := mustString(cmd, "server")
+
+			// Normally nothing to configure: the API key from `freehire auth
+			// login` is exchanged for a short-lived session token, and the
+			// server decides whose it is. An explicit token stays available
+			// for debugging.
 			token := runner.ResolveToken(mustString(cmd, "token"))
 			if token == "" {
-				return errors.New(
-					"no runner token: pass --token or set ROY_RUNNER_TOKEN")
+				r, err := config.Resolve(os.Getenv)
+				if err != nil {
+					return err
+				}
+				token, err = runner.FetchToken(cmd.Context(), server, r.Token)
+				if err != nil {
+					return err
+				}
 			}
+
 			deviceID, err := runner.DeviceID()
 			if err != nil {
 				return fmt.Errorf("resolving device id: %w", err)
@@ -48,7 +62,7 @@ func newRunnerCmd() *cobra.Command {
 			defer stop()
 
 			err = runner.Run(ctx, runner.Options{
-				ServerURL: mustString(cmd, "server"),
+				ServerURL: server,
 				Token:     token,
 				DeviceID:  deviceID,
 				Out:       cmd.ErrOrStderr(),
@@ -64,6 +78,6 @@ func newRunnerCmd() *cobra.Command {
 	cmd.Flags().String("server", "https://agent.freehire.dev",
 		"assistant server base URL")
 	cmd.Flags().String("token", "",
-		"session token for this device (or set ROY_RUNNER_TOKEN)")
+		"use a specific session token instead of exchanging the stored API key")
 	return cmd
 }
