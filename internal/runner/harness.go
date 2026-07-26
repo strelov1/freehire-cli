@@ -17,12 +17,22 @@ type Harness struct {
 	// by the server: the server's workspace path does not exist on this
 	// machine, and a harness handed one dies opening it.
 	Dir string
+	// EnvRemove are variables stripped from the inherited environment. The
+	// harness runs with the user's env, which may contain things that make it
+	// refuse to start.
+	EnvRemove []string
 }
 
 // harnesses is the entire allowlist. Keys are the identifiers the server may
 // use; nothing else resolves.
 var harnesses = map[string]Harness{
-	"claude": {Command: "claude-code-acp"},
+	"claude": {
+		Command: "claude-code-acp",
+		// Claude Code refuses to start inside another Claude Code session,
+		// and someone running this from a Claude Code terminal inherits the
+		// marker. Stripping it is what the server's local spawn already does.
+		EnvRemove: []string{"CLAUDECODE"},
+	},
 }
 
 // LookupHarness resolves a server-supplied identifier. The match is exact: no

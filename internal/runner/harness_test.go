@@ -61,3 +61,21 @@ func TestHarnessArgsAreOwnedByTheRunner(t *testing.T) {
 		}
 	}
 }
+
+func TestClaudeStripsTheAntiRecursionGuard(t *testing.T) {
+	// claude-code-acp refuses to start when CLAUDECODE is set, and a developer
+	// running the runner from inside Claude Code inherits it. Found exactly
+	// that way: the harness died with "cannot be launched inside another
+	// Claude Code session". The server's local spawn already strips it; so
+	// must we.
+	h, _ := LookupHarness("claude")
+	found := false
+	for _, k := range h.EnvRemove {
+		if k == "CLAUDECODE" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("claude must strip CLAUDECODE, got %v", h.EnvRemove)
+	}
+}

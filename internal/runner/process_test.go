@@ -145,3 +145,25 @@ func pidAlive(t *testing.T, pid string) bool {
 	}
 	return proc.Signal(syscall.Signal(0)) == nil
 }
+
+func TestStrippedVariablesDoNotReachTheHarness(t *testing.T) {
+	t.Setenv("CLAUDECODE", "1")
+	p, err := startProcess(Harness{
+		Command:   "sh",
+		Args:      []string{"-c", `echo "[${CLAUDECODE:-unset}]"`},
+		EnvRemove: []string{"CLAUDECODE"},
+	}, nil)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	defer p.Kill()
+
+	select {
+	case line := <-p.Lines():
+		if line != "[unset]" {
+			t.Fatalf("CLAUDECODE reached the harness: %q", line)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no output")
+	}
+}

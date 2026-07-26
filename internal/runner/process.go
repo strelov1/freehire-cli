@@ -6,6 +6,8 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"slices"
+	"strings"
 	"sync"
 )
 
@@ -34,7 +36,7 @@ type execProcess struct {
 func startProcess(h Harness, env map[string]string) (process, error) {
 	cmd := exec.Command(h.Command, h.Args...)
 	cmd.Dir = h.Dir
-	cmd.Env = os.Environ()
+	cmd.Env = stripEnv(os.Environ(), h.EnvRemove)
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
@@ -82,6 +84,21 @@ func (p *execProcess) readLines(stdout io.ReadCloser) {
 	err := p.cmd.Wait()
 	p.code = exitCode(err)
 	close(p.done)
+}
+
+// stripEnv drops the named variables from an environment listing.
+func stripEnv(environ []string, remove []string) []string {
+	if len(remove) == 0 {
+		return environ
+	}
+	out := environ[:0:0]
+	for _, kv := range environ {
+		name, _, _ := strings.Cut(kv, "=")
+		if !slices.Contains(remove, name) {
+			out = append(out, kv)
+		}
+	}
+	return out
 }
 
 func exitCode(err error) int {
