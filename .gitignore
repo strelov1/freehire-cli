@@ -3,3 +3,6 @@
 /bin/
 /dist/
 *.exe
+
+# Local runner build
+/freehire
