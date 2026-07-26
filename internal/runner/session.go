@@ -189,8 +189,20 @@ func sessionDir(stream uint64) (string, error) {
 		return "", err
 	}
 	dir := filepath.Join(home, dirName, "runner", "sessions", fmt.Sprint(stream))
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o700); err != nil {
 		return "", err
+	}
+	// The harness reads this from its working directory and confines itself
+	// with it. Without it the agent cannot run even `freehire`, because the
+	// server deliberately answers every permission request with "deny" —
+	// policy belongs to the machine the agent runs on.
+	self, err := os.Executable()
+	if err != nil {
+		self = "freehire"
+	}
+	settings := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.WriteFile(settings, []byte(sessionSettings(self)), 0o600); err != nil {
+		return "", fmt.Errorf("writing %s: %w", settings, err)
 	}
 	return dir, nil
 }

@@ -84,3 +84,18 @@ func newRunnerCmd() *cobra.Command {
 		"use a specific session token instead of exchanging the stored API key")
 	return cmd
 }
+
+// newBashGuardCmd is the PreToolUse hook a local session wires itself to. It is
+// hidden: users never type it, the runner writes it into the session's
+// settings.json and Claude Code invokes it per Bash call.
+func newBashGuardCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:    "bash-guard",
+		Short:  "PreToolUse hook: allow only a clean `freehire …` command",
+		Hidden: true,
+		Args:   cobra.NoArgs,
+		Run: func(cmd *cobra.Command, _ []string) {
+			runner.RunGuard(cmd.InOrStdin(), cmd.OutOrStdout())
+		},
+	}
+}
