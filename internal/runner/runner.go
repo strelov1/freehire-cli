@@ -42,6 +42,9 @@ type Options struct {
 	DeviceID  string
 	// Out receives human-readable status. Nil discards it.
 	Out io.Writer
+	// Verbose logs every protocol frame. Useful when a turn misbehaves, noisy
+	// otherwise — a single turn is hundreds of frames.
+	Verbose bool
 }
 
 // Run connects and serves until ctx is cancelled, reconnecting on failure.
@@ -75,7 +78,10 @@ func Run(ctx context.Context, opt Options) error {
 		defer l.Close()
 		fmt.Fprintf(opt.Out, "connected to %s — waiting for sessions\n", opt.ServerURL)
 
-		err = newSessions(l, startProcess).run(ctx)
+		sess := newSessions(l, startProcess)
+		sess.log = opt.Out
+		sess.verbose = opt.Verbose
+		err = sess.run(ctx)
 		fmt.Fprintln(opt.Out, "disconnected:", err)
 		return err
 	}, backoff)

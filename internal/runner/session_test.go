@@ -376,3 +376,63 @@ func TestSessionDirectoriesAreDistinctPerStream(t *testing.T) {
 		t.Fatalf("concurrent sessions must not share a directory: %q", dirs[0])
 	}
 }
+
+func TestTheRunnerSaysWhatItIsDoing(t *testing.T) {
+	// A runner that prints nothing between "connected" and a crash is
+	// indistinguishable from one that is idle. The user needs to see the
+	// server asking for work.
+	t.Setenv("HOME", t.TempDir())
+	var log strings.Builder
+	link := newFakeLink()
+	proc := newFakeProc()
+	r := newSessions(link, func(Harness, map[string]string) (process, error) {
+		return proc, nil
+	})
+	r.log = &log
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.run(ctx)
+
+	link.in <- Message{Type: MsgOpen, StreamID: 31, Harness: "claude"}
+	link.waitFor(t, "opened", func(ms []Message) bool { return len(ms) > 0 })
+	close(proc.out)
+	proc.exit <- 0
+	link.waitFor(t, "closed", func(ms []Message) bool {
+		for _, m := range ms {
+			if m.Type == MsgClosed {
+				return true
+			}
+		}
+		return false
+	})
+
+	out := log.String()
+	for _, want := range []string{"claude", "31"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("the log should mention %q, got:\n%s", want, out)
+		}
+	}
+	if !strings.Contains(out, "exited") && !strings.Contains(out, "finished") {
+		t.Errorf("the log should report the harness exiting, got:\n%s", out)
+	}
+}
+
+func TestARefusalIsLoggedWithItsReason(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	var log strings.Builder
+	link := newFakeLink()
+	r := newSessions(link, func(Harness, map[string]string) (process, error) {
+		return nil, errors.New("executable file not found in $PATH")
+	})
+	r.log = &log
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.run(ctx)
+
+	link.in <- Message{Type: MsgOpen, StreamID: 32, Harness: "claude"}
+	link.waitFor(t, "open_failed", func(ms []Message) bool { return len(ms) > 0 })
+
+	if !strings.Contains(log.String(), "not found") {
+		t.Errorf("a refusal must be visible to the user, got:\n%s", log.String())
+	}
+}

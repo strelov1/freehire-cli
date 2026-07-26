@@ -3,6 +3,7 @@ package runner
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sync"
@@ -34,6 +35,13 @@ type spawnFunc func(h Harness, env map[string]string) (process, error)
 type sessions struct {
 	link  link
 	spawn spawnFunc
+	// Where session activity is reported. A runner that prints nothing between
+	// "connected" and a crash is indistinguishable from an idle one, so every
+	// request from the server is announced.
+	log io.Writer
+	// verbose adds a line per protocol frame. Off by default: a single turn is
+	// hundreds of frames, which buries the events that matter.
+	verbose bool
 
 	mu   sync.Mutex
 	open map[uint64]process
@@ -41,7 +49,14 @@ type sessions struct {
 }
 
 func newSessions(l link, spawn spawnFunc) *sessions {
-	return &sessions{link: l, spawn: spawn, open: map[uint64]process{}}
+	return &sessions{link: l, spawn: spawn, log: io.Discard, open: map[uint64]process{}}
+}
+
+func (s *sessions) logf(format string, args ...any) {
+	if s.log == nil {
+		return
+	}
+	fmt.Fprintf(s.log, format+"\n", args...)
 }
 
 // run serves the tunnel until it fails or ctx is cancelled. On the way out it
@@ -68,9 +83,12 @@ func (s *sessions) run(ctx context.Context) error {
 }
 
 func (s *sessions) handleOpen(ctx context.Context, msg Message) {
+	s.logf("session %d: server asked for harness %q", msg.StreamID, msg.Harness)
 	harness, ok := LookupHarness(msg.Harness)
 	if !ok {
 		// Refused before a process exists — this is the allowlist doing its job.
+		s.logf("session %d: refused — %q is not a harness this runner offers",
+			msg.StreamID, msg.Harness)
 		_ = s.link.Send(ctx, OpenFailed(msg.StreamID, "unknown harness: "+msg.Harness))
 		return
 	}
@@ -85,9 +103,11 @@ func (s *sessions) handleOpen(ctx context.Context, msg Message) {
 	if err != nil {
 		// The user's own reason, not a category: "not found in $PATH" is
 		// actionable, "spawn failed" is not.
+		s.logf("session %d: could not start %s — %v", msg.StreamID, harness.Command, err)
 		_ = s.link.Send(ctx, OpenFailed(msg.StreamID, err.Error()))
 		return
 	}
+	s.logf("session %d: started %s in %s", msg.StreamID, harness.Command, dir)
 
 	s.mu.Lock()
 	s.open[msg.StreamID] = proc
@@ -106,12 +126,18 @@ func (s *sessions) handleOpen(ctx context.Context, msg Message) {
 // stream that will never produce again.
 func (s *sessions) pumpOut(ctx context.Context, stream uint64, proc process) {
 	defer s.wg.Done()
+	frames := 0
 	for line := range proc.Lines() {
+		if s.verbose {
+			s.logf("session %d: → %s", stream, truncate(line, 160))
+		}
 		if err := s.link.Send(ctx, Frame(stream, line)); err != nil {
 			return
 		}
+		frames++
 	}
 	code := proc.Wait()
+	s.logf("session %d: harness exited (code %d) after %d messages", stream, code, frames)
 
 	s.mu.Lock()
 	delete(s.open, stream)
@@ -138,8 +164,17 @@ func (s *sessions) handleClose(stream uint64) {
 	delete(s.open, stream)
 	s.mu.Unlock()
 	if ok {
+		s.logf("session %d: server closed it; stopping the harness", stream)
 		proc.Kill()
 	}
+}
+
+// truncate keeps a log line readable without hiding that it was cut.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	return s[:n] + "…"
 }
 
 // sessionDir is where a session's harness works: a scratch directory under the
@@ -168,6 +203,9 @@ func (s *sessions) shutdown() {
 		delete(s.open, id)
 	}
 	s.mu.Unlock()
+	if len(procs) > 0 {
+		s.logf("connection lost; stopping %d harness(es)", len(procs))
+	}
 	for _, p := range procs {
 		p.Kill()
 	}

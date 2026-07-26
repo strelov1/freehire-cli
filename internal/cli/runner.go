@@ -66,6 +66,7 @@ func newRunnerCmd() *cobra.Command {
 				Token:     token,
 				DeviceID:  deviceID,
 				Out:       cmd.ErrOrStderr(),
+				Verbose:   mustBool(cmd, "verbose"),
 			})
 			// A clean Ctrl-C is not a failure.
 			if errors.Is(err, context.Canceled) {
@@ -77,6 +78,8 @@ func newRunnerCmd() *cobra.Command {
 	}
 	cmd.Flags().String("server", "https://agent.freehire.dev",
 		"assistant server base URL")
+	cmd.Flags().Bool("verbose", false,
+		"log every protocol frame (noisy; a turn is hundreds of them)")
 	cmd.Flags().String("token", "",
 		"use a specific session token instead of exchanging the stored API key")
 	return cmd
