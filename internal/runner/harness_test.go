@@ -5,13 +5,36 @@ import (
 	"testing"
 )
 
-func TestKnownHarnessResolvesToAFixedCommand(t *testing.T) {
-	h, ok := LookupHarness("claude")
-	if !ok {
-		t.Fatal("claude must be a known harness")
+func TestKnownHarnessesResolveToFixedCommands(t *testing.T) {
+	// These mirror the server's AcpConfig constructors: a harness must behave
+	// the same whether the server spawns it or this runner does.
+	for name, want := range map[string]string{
+		"claude":   "claude-code-acp",
+		"gemini":   "gemini",
+		"opencode": "opencode",
+		"codex":    "codex-acp",
+		"pi":       "pi-acp",
+	} {
+		h, ok := LookupHarness(name)
+		if !ok {
+			t.Errorf("%s must be a known harness", name)
+			continue
+		}
+		if h.Command != want {
+			t.Errorf("%s → %q, want %q", name, h.Command, want)
+		}
 	}
-	if h.Command != "claude-code-acp" {
-		t.Fatalf("command = %q, want claude-code-acp", h.Command)
+}
+
+func TestHarnessesThatNeedFlagsCarryThem(t *testing.T) {
+	// gemini needs --acp to speak the agent protocol at all, and opencode
+	// needs its `acp` subcommand. Getting these wrong looks like a hung
+	// handshake rather than a misconfiguration.
+	if h, _ := LookupHarness("gemini"); len(h.Args) == 0 || h.Args[0] != "--acp" {
+		t.Errorf("gemini must be launched with --acp, got %v", h.Args)
+	}
+	if h, _ := LookupHarness("opencode"); len(h.Args) == 0 || h.Args[0] != "acp" {
+		t.Errorf("opencode must be launched with its acp subcommand, got %v", h.Args)
 	}
 }
 

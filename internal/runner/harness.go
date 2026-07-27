@@ -33,6 +33,13 @@ var harnesses = map[string]Harness{
 		// marker. Stripping it is what the server's local spawn already does.
 		EnvRemove: []string{"CLAUDECODE"},
 	},
+	// The rest mirror the server's AcpConfig constructors, so a harness behaves
+	// the same whether it runs there or here. Flags are part of the definition,
+	// never taken from the wire.
+	"gemini":   {Command: "gemini", Args: []string{"--acp", "--skip-trust"}},
+	"opencode": {Command: "opencode", Args: []string{"acp"}},
+	"codex":    {Command: "codex-acp"},
+	"pi":       {Command: "pi-acp"},
 }
 
 // LookupHarness resolves a server-supplied identifier. The match is exact: no

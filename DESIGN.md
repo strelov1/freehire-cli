@@ -63,7 +63,9 @@ a match.
 ```
 internal/runner/
   device.go    stable per-machine id (~/.freehire/runner-id), survives restarts
-  harness.go   the allowlist: identifier → command, args, env to strip
+  harness.go   the allowlist: identifier → command, args, env to strip. Five
+               entries mirroring the server's AcpConfig constructors, so a
+               harness behaves the same wherever it runs
   tunnel.go    wire types mirroring the server's tunnel protocol (version 2)
   token.go     fhk_ key → short-lived session token
   link.go      the WebSocket, and the registration that opens it
