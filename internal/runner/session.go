@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -92,7 +93,7 @@ func (s *sessions) handleOpen(ctx context.Context, msg Message) {
 		_ = s.link.Send(ctx, OpenFailed(msg.StreamID, "unknown harness: "+msg.Harness))
 		return
 	}
-	dir, err := sessionDir(msg.StreamID)
+	dir, err := sessionDir(msg.StreamID, msg.Env["ROY_SESSION_ID"])
 	if err != nil {
 		_ = s.link.Send(ctx, OpenFailed(msg.StreamID, "preparing a working directory: "+err.Error()))
 		return
@@ -178,17 +179,27 @@ func truncate(s string, n int) string {
 }
 
 // sessionDir is where a session's harness works: a scratch directory under the
-// user's home, one per stream.
+// user's home, one per session.
 //
-// It is scratch on purpose. Everything durable — the CV, the vacancy, the
-// conversation — lives on the server and is reached through the `freehire`
-// CLI, so nothing here needs to survive the session.
-func sessionDir(stream uint64) (string, error) {
+// Named after the *session*, not the stream. A resumed session gets a fresh
+// stream id, and Claude Code keys its stored history by working directory — so
+// naming it after the stream would hand a resumed session a directory the
+// harness has never seen and `session/load` nothing to restore. The stream id
+// is only a fallback for a server that sends no session id, where the goal is
+// merely that two sessions do not collide.
+//
+// Still scratch: the CV, the vacancy and the conversation live on the server
+// and are reached through the `freehire` CLI.
+func sessionDir(stream uint64, sessionID string) (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	dir := filepath.Join(home, dirName, "runner", "sessions", fmt.Sprint(stream))
+	name := sanitizeDirName(sessionID)
+	if name == "" {
+		name = "stream-" + fmt.Sprint(stream)
+	}
+	dir := filepath.Join(home, dirName, "runner", "sessions", name)
 	if err := os.MkdirAll(filepath.Join(dir, ".claude"), 0o700); err != nil {
 		return "", err
 	}
@@ -205,6 +216,20 @@ func sessionDir(stream uint64) (string, error) {
 		return "", fmt.Errorf("writing %s: %w", settings, err)
 	}
 	return dir, nil
+}
+
+// sanitizeDirName keeps a server-supplied id from escaping the sessions
+// directory or naming something unexpected: only characters a session id
+// actually uses survive.
+func sanitizeDirName(id string) string {
+	var b strings.Builder
+	for _, r := range id {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_':
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func (s *sessions) shutdown() {
