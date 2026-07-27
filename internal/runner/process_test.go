@@ -2,6 +2,7 @@ package runner
 
 import (
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -162,6 +163,38 @@ func TestStrippedVariablesDoNotReachTheHarness(t *testing.T) {
 	case line := <-p.Lines():
 		if line != "[unset]" {
 			t.Fatalf("CLAUDECODE reached the harness: %q", line)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("no output")
+	}
+}
+
+func TestTheHarnessFindsTheSameFreehireTheRunnerIs(t *testing.T) {
+	// The agent's only tool is `freehire`, resolved from PATH. A user with an
+	// older copy earlier in PATH — a stale `go install` next to a fresh
+	// install.sh, say — gets an agent whose CLI lacks half its subcommands,
+	// and the failure reads as "the CLI has no cv command" rather than "you
+	// have two binaries". Pin it: our own directory goes first.
+	p, err := startProcess(Harness{
+		Command: "sh",
+		Args:    []string{"-c", `echo "$PATH"`},
+	}, nil)
+	if err != nil {
+		t.Fatalf("start: %v", err)
+	}
+	defer p.Kill()
+
+	self, err := os.Executable()
+	if err != nil {
+		t.Skip("no executable path in this environment")
+	}
+	want := filepath.Dir(self)
+
+	select {
+	case line := <-p.Lines():
+		first := strings.SplitN(line, string(os.PathListSeparator), 2)[0]
+		if first != want {
+			t.Fatalf("harness PATH starts with %q, want the runner's own dir %q", first, want)
 		}
 	case <-time.After(5 * time.Second):
 		t.Fatal("no output")

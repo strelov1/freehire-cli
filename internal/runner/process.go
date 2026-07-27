@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -36,7 +37,7 @@ type execProcess struct {
 func startProcess(h Harness, env map[string]string) (process, error) {
 	cmd := exec.Command(h.Command, h.Args...)
 	cmd.Dir = h.Dir
-	cmd.Env = stripEnv(os.Environ(), h.EnvRemove)
+	cmd.Env = withOwnPath(stripEnv(os.Environ(), h.EnvRemove))
 	for k, v := range env {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
@@ -84,6 +85,36 @@ func (p *execProcess) readLines(stdout io.ReadCloser) {
 	err := p.cmd.Wait()
 	p.code = exitCode(err)
 	close(p.done)
+}
+
+// withOwnPath puts this binary's directory at the front of PATH.
+//
+// The agent's only tool is `freehire`, which it resolves from PATH. A user with
+// an older copy earlier in PATH — a stale `go install` alongside a fresh
+// install.sh — hands the agent a CLI missing half its subcommands, and the
+// failure surfaces as "this CLI has no cv command" rather than "you have two
+// binaries". Whichever freehire is running the runner is the one the agent
+// should call.
+func withOwnPath(environ []string) []string {
+	self, err := os.Executable()
+	if err != nil {
+		return environ
+	}
+	dir := filepath.Dir(self)
+	out := make([]string, 0, len(environ))
+	replaced := false
+	for _, kv := range environ {
+		if name, value, ok := strings.Cut(kv, "="); ok && name == "PATH" {
+			out = append(out, "PATH="+dir+string(os.PathListSeparator)+value)
+			replaced = true
+			continue
+		}
+		out = append(out, kv)
+	}
+	if !replaced {
+		out = append(out, "PATH="+dir)
+	}
+	return out
 }
 
 // stripEnv drops the named variables from an environment listing.

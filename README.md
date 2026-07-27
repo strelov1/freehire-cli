@@ -100,12 +100,41 @@ Leave it running and use the assistant at
 sessions are routed to your machine automatically. Stop with Ctrl-C and they go
 back to being server-hosted.
 
-**What you need:** the harness binary, installed and logged in.
+**What you need:** a *harness* — the coding agent that actually talks to a
+model — installed and logged in. The runner starts it; it never installs it.
+
+Claude Code is the default and the one the assistant is tuned for:
 
 ```bash
 npm i -g @zed-industries/claude-code-acp   # the harness
-claude                                     # log in to Claude Code once
+claude                                     # log in once
 ```
+
+<details>
+<summary>Other harnesses</summary>
+
+The runner can start any of these. It advertises the ones it finds, and the
+server picks from that list — you cannot be handed a harness this binary does
+not know.
+
+| Harness | Install | Binary the runner starts |
+|---|---|---|
+| `claude` | `npm i -g @zed-industries/claude-code-acp`, then `claude` to log in | `claude-code-acp` |
+| `gemini` | `npm i -g @google/gemini-cli`, then `gemini` to log in | `gemini --acp --skip-trust` |
+| `opencode` | see [opencode.ai](https://opencode.ai) | `opencode acp` |
+| `codex` | `npm i -g codex-acp`, plus a logged-in `codex` | `codex-acp` |
+| `pi` | `npm i -g pi-acp` | `pi-acp` |
+
+Each one authenticates on its own — with your account, on your machine. The
+runner passes no model credentials and never sees them.
+
+The freehire assistant currently asks for `claude`; the others are here because
+the protocol and the server support them, and are useful if you run your own
+[roy](https://github.com/strelov1/roy) instance. Which harnesses and models a
+server offers is configured there — see
+[harnesses-config.md](https://github.com/strelov1/roy/blob/master/docs/harnesses-config.md).
+
+</details>
 
 ### What actually runs where
 
