@@ -436,3 +436,61 @@ func TestARefusalIsLoggedWithItsReason(t *testing.T) {
 		t.Errorf("a refusal must be visible to the user, got:\n%s", log.String())
 	}
 }
+
+func TestTheSessionDirectoryIsStableAcrossReopens(t *testing.T) {
+	// A resumed session gets a new stream id but the same session id. Naming
+	// the directory after the stream would hand the harness a different cwd on
+	// resume — and Claude Code keys its stored history by working directory,
+	// so `session/load` would find nothing to restore.
+	t.Setenv("HOME", t.TempDir())
+	link := newFakeLink()
+	var dirs []string
+	r := newSessions(link, func(h Harness, _ map[string]string) (process, error) {
+		dirs = append(dirs, h.Dir)
+		return newFakeProc(), nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.run(ctx)
+
+	env := map[string]string{"ROY_SESSION_ID": "sess-abc"}
+	link.in <- Message{Type: MsgOpen, StreamID: 0, Harness: "claude", Env: env}
+	link.waitFor(t, "first open", func(ms []Message) bool { return len(ms) >= 1 })
+	link.in <- Message{Type: MsgClose, StreamID: 0}
+	// Reopened later: the server assigns a fresh stream id.
+	link.in <- Message{Type: MsgOpen, StreamID: 7, Harness: "claude", Env: env}
+	link.waitFor(t, "second open", func(ms []Message) bool { return len(ms) >= 2 })
+
+	if len(dirs) != 2 {
+		t.Fatalf("expected two spawns, got %v", dirs)
+	}
+	if dirs[0] != dirs[1] {
+		t.Fatalf("a reopened session must reuse its directory: %q then %q", dirs[0], dirs[1])
+	}
+	if !strings.Contains(dirs[0], "sess-abc") {
+		t.Errorf("the directory should be named after the session, got %q", dirs[0])
+	}
+}
+
+func TestSessionsWithoutAnIdStillGetDistinctDirectories(t *testing.T) {
+	// Defensive: a server that sends no session id must not make two sessions
+	// share one working directory.
+	t.Setenv("HOME", t.TempDir())
+	link := newFakeLink()
+	var dirs []string
+	r := newSessions(link, func(h Harness, _ map[string]string) (process, error) {
+		dirs = append(dirs, h.Dir)
+		return newFakeProc(), nil
+	})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go r.run(ctx)
+
+	link.in <- Message{Type: MsgOpen, StreamID: 1, Harness: "claude"}
+	link.in <- Message{Type: MsgOpen, StreamID: 2, Harness: "claude"}
+	link.waitFor(t, "two opens", func(ms []Message) bool { return len(ms) >= 2 })
+
+	if len(dirs) == 2 && dirs[0] == dirs[1] {
+		t.Fatalf("distinct sessions must not share a directory: %q", dirs[0])
+	}
+}
