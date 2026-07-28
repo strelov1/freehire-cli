@@ -156,11 +156,7 @@ func newInboxReadCmd() *cobra.Command {
 			"use `inbox list --body` instead, which does not.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, _, err := authedClient(cmd)
-			if err != nil {
-				return err
-			}
-			id, err := parseEmailID(args[0])
+			c, id, err := authedEmail(cmd, args[0])
 			if err != nil {
 				return err
 			}
@@ -263,11 +259,7 @@ func newInboxTriageCmd() *cobra.Command {
 			"`inbox unlink`.\n\nSignals: " + strings.Join(signalVocabulary, ", "),
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, _, err := authedClient(cmd)
-			if err != nil {
-				return err
-			}
-			id, err := parseEmailID(args[0])
+			c, id, err := authedEmail(cmd, args[0])
 			if err != nil {
 				return err
 			}
@@ -280,11 +272,11 @@ func newInboxTriageCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if wantJSON(cmd) {
-				printJSON(cmd, data)
-				return nil
+			done := fmt.Sprintf("Triaged %d: %s", id, p.Signal)
+			if p.Slug != "" {
+				done += " → " + p.Slug
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Triaged %d: %s%s\n", id, p.Signal, linkedSuffix(p.Slug))
+			reportEmail(cmd, data, done)
 			return nil
 		},
 	}
@@ -293,24 +285,13 @@ func newInboxTriageCmd() *cobra.Command {
 	return cmd
 }
 
-func linkedSuffix(slug string) string {
-	if slug == "" {
-		return ""
-	}
-	return " → " + slug
-}
-
 func newInboxLinkCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "link <id> <slug>",
 		Short: "Attach a message to one of your applications",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, _, err := authedClient(cmd)
-			if err != nil {
-				return err
-			}
-			id, err := parseEmailID(args[0])
+			c, id, err := authedEmail(cmd, args[0])
 			if err != nil {
 				return err
 			}
@@ -318,11 +299,7 @@ func newInboxLinkCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if wantJSON(cmd) {
-				printJSON(cmd, data)
-				return nil
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Linked %d → %s\n", id, args[1])
+			reportEmail(cmd, data, fmt.Sprintf("Linked %d → %s", id, args[1]))
 			return nil
 		},
 	}
@@ -334,11 +311,7 @@ func newInboxUnlinkCmd() *cobra.Command {
 		Short: "Clear a message's application link (its classification stays)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, _, err := authedClient(cmd)
-			if err != nil {
-				return err
-			}
-			id, err := parseEmailID(args[0])
+			c, id, err := authedEmail(cmd, args[0])
 			if err != nil {
 				return err
 			}
@@ -346,11 +319,7 @@ func newInboxUnlinkCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if wantJSON(cmd) {
-				printJSON(cmd, data)
-				return nil
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Unlinked %d\n", id)
+			reportEmail(cmd, data, fmt.Sprintf("Unlinked %d", id))
 			return nil
 		},
 	}
@@ -406,11 +375,7 @@ func newInboxRestoreCmd() *cobra.Command {
 
 // emailAction runs a per-message action that returns no payload and reports it.
 func emailAction(cmd *cobra.Command, arg, verb string, do func(*client.Client, int64) error) error {
-	c, _, err := authedClient(cmd)
-	if err != nil {
-		return err
-	}
-	id, err := parseEmailID(arg)
+	c, id, err := authedEmail(cmd, arg)
 	if err != nil {
 		return err
 	}
@@ -419,6 +384,30 @@ func emailAction(cmd *cobra.Command, arg, verb string, do func(*client.Client, i
 	}
 	fmt.Fprintf(cmd.OutOrStdout(), "%s %d\n", verb, id)
 	return nil
+}
+
+// authedEmail resolves the two things every per-message command needs: an
+// authenticated client and a validated message id.
+func authedEmail(cmd *cobra.Command, arg string) (*client.Client, int64, error) {
+	c, _, err := authedClient(cmd)
+	if err != nil {
+		return nil, 0, err
+	}
+	id, err := parseEmailID(arg)
+	if err != nil {
+		return nil, 0, err
+	}
+	return c, id, nil
+}
+
+// reportEmail prints the API payload when --json was passed, and the human line
+// otherwise — the shared tail of the commands that return the changed message.
+func reportEmail(cmd *cobra.Command, data json.RawMessage, human string) {
+	if wantJSON(cmd) {
+		printJSON(cmd, data)
+		return
+	}
+	fmt.Fprintln(cmd.OutOrStdout(), human)
 }
 
 // parseEmailID turns the CLI's message-id argument into an int64, rejecting
