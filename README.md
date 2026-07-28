@@ -51,6 +51,9 @@ freehire unsave <slug>                                         # remove a bookma
 freehire stage <slug> <stage>                                  # set application stage (applied→…→offer, or rejected/withdrawn)
 freehire note <slug> a quick reminder                          # attach a free-text note (trailing args; no quotes needed)
 freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
+freehire inbox push < mail.json                                # upload mail your own client fetched
+freehire inbox list --unclassified --body                      # mail still awaiting a verdict, with its text
+freehire inbox triage <id> rejection --slug <slug>             # record what a message is + link it
 ```
 
 **Discovering values.** `freehire facets [filters]` lists every filter's live
@@ -85,6 +88,37 @@ freehire jobs edit <slug> --title "Staff Go Developer"         # partial: only t
 the job is flagged as manually added (that comes from the moderator authorship). `--description`
 is stored and rendered as HTML, so pass HTML markup. The URL is the dedup key — re-running `add`
 with the same URL updates the posting.
+
+## Application mail — bring your own client
+
+freehire does not fetch your mail. Your own client does — [himalaya], `mbsync`,
+`notmuch`, anything that can emit JSON — and `inbox push` hands the result over.
+Your agent then reads it and records what each message is, so the tracker stays
+current without freehire running a mail connector or a classifier for you.
+
+[himalaya]: https://github.com/pimalaya/himalaya
+
+```bash
+himalaya envelope list --output json | jq '[.[] | {
+    external_id: .message_id, from_addr: .from.addr, from_name: .from.name,
+    subject: .subject, received_at: .date }]' | freehire inbox push
+
+freehire --json inbox list --unclassified --body --limit 50   # what still needs judging, with its text
+freehire inbox triage 812 rejection --slug go-dev-acme-t35nijto
+```
+
+`external_id` is the deduplication key — use the message's `Message-ID`. Re-pushing
+the same id updates that message instead of storing a copy, and never un-reads it,
+resurrects a deleted one, or overwrites a verdict. Batches hold up to 100 messages.
+
+`inbox list --body` returns each message's readable text (HTML-only ATS mail arrives
+stripped) and marks nothing read — unlike `inbox read`, which is for opening a single
+message a person asked to see. Triage signals: `acknowledgement`, `screening`,
+`interview_invitation`, `assessment`, `offer`, `rejection`, `info_request`,
+`incomplete_application`, `other`. A forward signal on a linked message advances that
+application's stage; a settled application is never dragged back into the pipeline.
+
+Corrections: `inbox link`/`unlink`, `inbox delete`/`restore`, `inbox read-all`.
 
 ## For agents
 
