@@ -1,6 +1,6 @@
 ---
 name: using-freehire
-description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs the user's own saved job-search profile before asking them what they want, when discovering the job market's filter vocabulary (categories, seniorities, regions, skills), when measuring a CV's skills against live market demand, or when syncing and sorting a job seeker's application mail from their own mail client (himalaya, mbsync, IMAP) into the tracker. Covers auth, reading the saved profile, market vocabulary discovery, keyword + facet search, market-fit coverage, application tracking, and agent-driven mail triage — all with machine-readable `--json` output.
+description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs the user's own saved job-search profile before asking them what they want, when discovering the job market's filter vocabulary (categories, seniorities, regions, skills), when measuring a CV's skills against live market demand, or when syncing and sorting a job seeker's application mail from their own mail client (himalaya, mbsync, IMAP) into the tracker. Covers auth, reading the saved profile, market vocabulary discovery, keyword + facet search, market-fit coverage, application tracking, and agent-driven mail triage — including draining the matcher's suggestion queue and recording an application from a message that has none — all with machine-readable `--json` output.
 ---
 
 # Using the freehire CLI
@@ -147,7 +147,7 @@ a mail connector or a classifier.
 
 [himalaya]: https://github.com/pimalaya/himalaya
 
-The loop is four steps:
+The loop is four steps, and then two queues that only a human's verdict can empty:
 
 ```bash
 # 1. Your client fetches; you shape it into the batch and push it.
@@ -180,15 +180,66 @@ readable text (HTML-only ATS mail arrives stripped to text) and marks nothing.
 signal on a linked message advances that application's stage; a settled application
 (rejected/accepted/withdrawn) is never dragged back into the pipeline.
 
+### Judging a message: three ways to get it wrong
+
+These are not hypotheticals. Each cost real damage on a real mailbox.
+
+**The sender name is usually the ATS, not the employer.** A message reading
+`From: Workable` / `Subject: Thanks for applying to Derq` is about **Derq**. Relays
+sign mail with their own brand, so read the employer out of the subject and body,
+and treat the sender name as the weakest evidence you have. Getting this backwards
+once had 23 acknowledgements — for 23 different employers — all attached to a single
+application.
+
+**An event the user organised is not an interview invitation.** Calendar mail from
+`cal.com`, Calendly and friends looks identical whether a recruiter booked it or the
+user booked a practice session with a friend. Check who the organiser is and who the
+other party is: the user's own name as organiser plus a personal address is a mock
+interview, not a hiring step. That is `other`.
+
+**When the employer does not match any of the candidate's applications, link
+nothing.** `--slug` is optional for a reason. A classification with no link is
+useful; a confident link to the wrong application is worse than none, because it
+silently transplants that employer's history onto someone else's. Three messages
+from three unrelated companies once landed on one application this way.
+
+### Two queues the matcher fills and only you can empty
+
+Only a deterministic match links mail automatically. Anything the server's own
+classifier merely *believes* becomes a **suggestion** awaiting the user's word — and
+a suggestion nobody answers is a link that never happens.
+
+```bash
+freehire inbox list --link suggested       # proposals awaiting a verdict
+freehire inbox confirm <id>                # accept one
+freehire inbox reject <id>                 # dismiss it, leaving the message unlinked
+
+freehire inbox list --link unlinked        # mail with no application to attach to
+freehire inbox application <id> <slug>     # create the application AND link, in one call
+```
+
+`--link linked|suggested|unlinked` partitions the mailbox: every message is in
+exactly one. `inbox application` is the way out of the second queue — `inbox link`
+cannot help there, because it needs an application to point at and there is none. It
+dates the new application by the **message**, not by now(): the employer replied to
+something that already existed.
+
+A message still carrying a suggestion refuses `inbox application` with a 409.
+Confirm or reject the suggestion first, so the resulting link's provenance is never
+ambiguous.
+
 The rest of the surface, for corrections:
 
 ```bash
-freehire inbox list --source external --status rejection  # filter: source, label, --unread, --query
+freehire inbox list --source external --status rejection  # filter: source, label, link, --unread, --query
 freehire inbox read <id>                                  # one message in full (marks it read)
 freehire inbox link <id> <slug> / unlink <id>             # fix a link without re-classifying
 freehire inbox delete <id> / restore <id>                 # soft-delete, reversible
 freehire inbox read-all --source external                 # mark the matching unread mail read
 ```
+
+`read-all` honours every active filter, `--link` included — so it clears the queue
+you are looking at, not the whole mailbox.
 
 **Two cautions.**
 
