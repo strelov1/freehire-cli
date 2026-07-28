@@ -67,6 +67,7 @@ type inboxAPI struct {
 	*httptest.Server
 	lastQuery string
 	lastBody  []byte
+	lastPath  string
 }
 
 func newInboxAPI(t *testing.T) *inboxAPI {
@@ -86,6 +87,21 @@ func newInboxAPI(t *testing.T) *inboxAPI {
 	mux.HandleFunc("/api/v1/me/emails/7/triage", func(w http.ResponseWriter, r *http.Request) {
 		api.lastBody, _ = readAll(r)
 		w.Write([]byte(`{"data":{"id":7,"status_signal":"rejection"}}`))
+	})
+	mux.HandleFunc("/api/v1/me/inbox/read-all", func(w http.ResponseWriter, r *http.Request) {
+		api.lastQuery = r.URL.RawQuery
+		w.Write([]byte(`{"data":{"marked":3}}`))
+	})
+	for _, action := range []string{"confirm", "reject"} {
+		mux.HandleFunc("/api/v1/me/emails/7/"+action, func(w http.ResponseWriter, r *http.Request) {
+			api.lastPath = r.URL.Path
+			w.Write([]byte(`{"data":{"id":7,"linked_slug":"go-dev-acme","link_source":"manual"}}`))
+		})
+	}
+	mux.HandleFunc("/api/v1/me/emails/7/application", func(w http.ResponseWriter, r *http.Request) {
+		api.lastPath = r.URL.Path
+		api.lastBody, _ = readAll(r)
+		w.Write([]byte(`{"data":{"id":7,"linked_slug":"go-dev-acme","link_source":"manual"}}`))
 	})
 	api.Server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer good" {
