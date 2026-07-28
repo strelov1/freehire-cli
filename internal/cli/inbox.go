@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -22,6 +23,11 @@ var signalVocabulary = []string{
 	"acknowledgement", "screening", "interview_invitation", "assessment",
 	"offer", "rejection", "info_request", "incomplete_application", "other",
 }
+
+// linkStateVocabulary lists the link states the listing filters by. The three
+// partition the mailbox: every message is linked to an application, carrying a
+// suggestion awaiting confirmation, or neither.
+var linkStateVocabulary = []string{"linked", "suggested", "unlinked"}
 
 // inboxRow is the subset of an inbox message shown in CLI output. BodyText is
 // present only when --body was passed.
@@ -50,11 +56,16 @@ func newInboxCmd() *cobra.Command {
 			"freehire fetches no mail here: your own client (himalaya, mbsync, anything\n" +
 			"IMAP) does that, and `inbox push` hands the result over. `inbox list\n" +
 			"--unclassified --body` is then the agent's work queue, and `inbox triage`\n" +
-			"records its verdict and moves the application's stage.",
+			"records its verdict and moves the application's stage.\n\n" +
+			"Two more queues, both drained by hand because the matcher will not guess:\n" +
+			"`--link suggested` holds proposals awaiting your word (`inbox confirm` /\n" +
+			"`inbox reject`), and `--link unlinked` holds mail with no application to\n" +
+			"attach to (`inbox application`).",
 	}
 	cmd.AddCommand(
 		newInboxListCmd(), newInboxReadCmd(), newInboxPushCmd(), newInboxTriageCmd(),
 		newInboxLinkCmd(), newInboxUnlinkCmd(), newInboxReadAllCmd(),
+		newInboxConfirmCmd(), newInboxRejectCmd(), newInboxApplicationCmd(),
 		newInboxDeleteCmd(), newInboxRestoreCmd(),
 	)
 	return cmd
@@ -65,14 +76,32 @@ func inboxFilterFlags(cmd *cobra.Command) {
 	cmd.Flags().String("source", "", "narrow to one account: gmail, hosted, or external")
 	cmd.Flags().String("status", "", "narrow to one classified label ("+strings.Join(signalVocabulary, ", ")+")")
 	cmd.Flags().String("query", "", "match subject, sender, or body")
+	cmd.Flags().String("link", "", "narrow to one link state ("+strings.Join(linkStateVocabulary, ", ")+")")
 }
 
-func inboxFilters(cmd *cobra.Command) client.InboxParams {
+// validateLinkState fails a typo locally, with the vocabulary in the message. The
+// API would answer 400 anyway, but a round trip to learn a spelling is a poor
+// trade when the answer is a fixed list of three.
+func validateLinkState(state string) error {
+	if state == "" || slices.Contains(linkStateVocabulary, state) {
+		return nil
+	}
+	return fmt.Errorf("unknown link state %q: want one of %s", state, strings.Join(linkStateVocabulary, ", "))
+}
+
+// inboxFilters reads the shared listing filters, rejecting an unknown link state
+// before any network call.
+func inboxFilters(cmd *cobra.Command) (client.InboxParams, error) {
+	link := mustString(cmd, "link")
+	if err := validateLinkState(link); err != nil {
+		return client.InboxParams{}, err
+	}
 	return client.InboxParams{
 		Source: mustString(cmd, "source"),
 		Status: mustString(cmd, "status"),
 		Query:  mustString(cmd, "query"),
-	}
+		Link:   link,
+	}, nil
 }
 
 func newInboxListCmd() *cobra.Command {
@@ -85,11 +114,14 @@ func newInboxListCmd() *cobra.Command {
 			"it marks nothing read. Pages carrying bodies are capped at 50.",
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			p, err := inboxFilters(cmd)
+			if err != nil {
+				return err
+			}
 			c, _, err := authedClient(cmd)
 			if err != nil {
 				return err
 			}
-			p := inboxFilters(cmd)
 			p.Unread = mustBool(cmd, "unread")
 			p.Unclassified = mustBool(cmd, "unclassified")
 			p.WithBody = mustBool(cmd, "body")
@@ -331,11 +363,15 @@ func newInboxReadAllCmd() *cobra.Command {
 		Short: "Mark every unread message matching the filters as read",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			p, err := inboxFilters(cmd)
+			if err != nil {
+				return err
+			}
 			c, _, err := authedClient(cmd)
 			if err != nil {
 				return err
 			}
-			marked, err := c.MarkAllRead(cmd.Context(), inboxFilters(cmd))
+			marked, err := c.MarkAllRead(cmd.Context(), p)
 			if err != nil {
 				return err
 			}
@@ -345,6 +381,83 @@ func newInboxReadAllCmd() *cobra.Command {
 	}
 	inboxFilterFlags(cmd)
 	return cmd
+}
+
+// newInboxConfirmCmd accepts a pending suggestion. Only a deterministic match
+// links mail automatically — everything the classifier proposes waits for this,
+// so an inbox nobody confirms accumulates suggestions that never become links.
+func newInboxConfirmCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "confirm <id>",
+		Short: "Accept a message's suggested application link",
+		Long: "Promote the matcher's suggestion to a confirmed link.\n\n" +
+			"`inbox list --link suggested` is the queue this drains.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, id, err := authedEmail(cmd, args[0])
+			if err != nil {
+				return err
+			}
+			data, err := c.ConfirmEmailLink(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			reportEmail(cmd, data, fmt.Sprintf("Confirmed the suggestion on %d", id))
+			return nil
+		},
+	}
+}
+
+// newInboxRejectCmd dismisses a pending suggestion without linking.
+func newInboxRejectCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "reject <id>",
+		Short: "Dismiss a message's suggested application link",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, id, err := authedEmail(cmd, args[0])
+			if err != nil {
+				return err
+			}
+			data, err := c.RejectEmailLink(cmd.Context(), id)
+			if err != nil {
+				return err
+			}
+			reportEmail(cmd, data, fmt.Sprintf("Rejected the suggestion on %d", id))
+			return nil
+		},
+	}
+}
+
+// newInboxApplicationCmd records an application from a message and links it in
+// one call — the way out of `inbox list --link unlinked` for mail about an
+// application that was never tracked. `inbox link` cannot help there: it needs an
+// application to point at, and there is none.
+func newInboxApplicationCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "application <id> <slug>",
+		Short: "Record an application from a message and link the message to it",
+		Long: "Create the tracked application this message is about, and link the\n" +
+			"message to it, in one call.\n\n" +
+			"The application is dated by the message rather than by now(): the employer\n" +
+			"replied to something that already existed, so the message's timestamp is an\n" +
+			"honest upper bound on when you applied.\n\n" +
+			"A message still carrying a suggestion is refused — `inbox confirm` or\n" +
+			"`inbox reject` it first.",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, id, err := authedEmail(cmd, args[0])
+			if err != nil {
+				return err
+			}
+			data, err := c.CreateApplicationFromEmail(cmd.Context(), id, args[1])
+			if err != nil {
+				return err
+			}
+			reportEmail(cmd, data, fmt.Sprintf("Recorded %s from message %d", args[1], id))
+			return nil
+		},
+	}
 }
 
 func newInboxDeleteCmd() *cobra.Command {

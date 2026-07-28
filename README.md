@@ -54,6 +54,9 @@ freehire my --filter applied                                   # tracked jobs, s
 freehire inbox push < mail.json                                # upload mail your own client fetched
 freehire inbox list --unclassified --body                      # mail still awaiting a verdict, with its text
 freehire inbox triage <id> rejection --slug <slug>             # record what a message is + link it
+freehire inbox list --link suggested                          # matcher proposals awaiting your word
+freehire inbox confirm <id>                                   # accept one of them
+freehire inbox application <id> <slug>                        # mail about an untracked application
 ```
 
 **Discovering values.** `freehire facets [filters]` lists every filter's live
@@ -117,6 +120,18 @@ message a person asked to see. Triage signals: `acknowledgement`, `screening`,
 `interview_invitation`, `assessment`, `offer`, `rejection`, `info_request`,
 `incomplete_application`, `other`. A forward signal on a linked message advances that
 application's stage; a settled application is never dragged back into the pipeline.
+
+Only a deterministic match links mail automatically; anything the classifier merely
+believes lands as a *suggestion* awaiting your word. `inbox list --link suggested` is
+that queue, drained with `inbox confirm <id>` or `inbox reject <id>`. An unconfirmed
+suggestion is a link that never happens, so a mailbox nobody confirms looks far less
+matched than it is.
+
+`inbox list --link unlinked` is the other queue: mail with no application to attach
+to, usually because the application was never recorded. `inbox link` cannot help
+there — it needs something to point at. `inbox application <id> <slug>` creates the
+application and links the message in one call, dating it by the message rather than
+by now(), since the employer replied to something that already existed.
 
 Corrections: `inbox link`/`unlink`, `inbox delete`/`restore`, `inbox read-all`.
 

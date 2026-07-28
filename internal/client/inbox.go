@@ -15,10 +15,14 @@ import (
 // message's readable body inline — the agent's read path, which returns a whole
 // page to classify without a per-message fetch, and marks nothing read.
 // Unclassified narrows to mail still awaiting a verdict: the agent's work queue.
+// Link narrows to one link state (linked|suggested|unlinked): 'suggested' is the
+// queue of matcher proposals awaiting the caller's confirmation, 'unlinked' the
+// mail with no application to attach to yet.
 type InboxParams struct {
 	Query        string
 	Source       string
 	Status       string
+	Link         string
 	Unread       bool
 	Unclassified bool
 	WithBody     bool
@@ -37,6 +41,9 @@ func (c *Client) Inbox(ctx context.Context, p InboxParams) (Page, error) {
 	}
 	if p.Status != "" {
 		q.Set("status", p.Status)
+	}
+	if p.Link != "" {
+		q.Set("link", p.Link)
 	}
 	if p.Unread {
 		q.Set("unread", "1")
@@ -153,6 +160,41 @@ func (c *Client) UnlinkEmail(ctx context.Context, id int64) (json.RawMessage, er
 	return env.Data, err
 }
 
+// ConfirmEmailLink accepts a message's pending suggestion, promoting it to a
+// confirmed link (POST /me/emails/:id/confirm). Only a deterministic match links
+// mail automatically, so everything the classifier proposes waits here — an
+// unconfirmed suggestion is a link that never happens.
+func (c *Client) ConfirmEmailLink(ctx context.Context, id int64) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodPost, emailPath(id, "confirm"), nil)
+	return env.Data, err
+}
+
+// RejectEmailLink dismisses a message's pending suggestion without linking it
+// (POST /me/emails/:id/reject).
+func (c *Client) RejectEmailLink(ctx context.Context, id int64) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodPost, emailPath(id, "reject"), nil)
+	return env.Data, err
+}
+
+// CreateApplicationFromEmail records a tracked application from a message and
+// links the message to it in one call (POST /me/emails/:id/application). It is
+// the path for mail about an application that was never recorded: plain linking
+// needs an application to point at, and there is none.
+//
+// The application is dated by the message, not by the moment of recording. A
+// message still carrying a pending suggestion is refused — confirm or reject
+// that first, so the resulting link's provenance stays unambiguous.
+func (c *Client) CreateApplicationFromEmail(ctx context.Context, id int64, slug string) (json.RawMessage, error) {
+	body, err := json.Marshal(struct {
+		Slug string `json:"slug"`
+	}{Slug: slug})
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPost, emailPath(id, "application"), bytes.NewReader(body))
+	return env.Data, err
+}
+
 // DeleteEmail soft-deletes a message: it leaves the listing but is retained and
 // can be restored (POST /me/emails/:id/delete).
 func (c *Client) DeleteEmail(ctx context.Context, id int64) error {
@@ -176,6 +218,9 @@ func (c *Client) MarkAllRead(ctx context.Context, p InboxParams) (int, error) {
 	}
 	if p.Status != "" {
 		q.Set("status", p.Status)
+	}
+	if p.Link != "" {
+		q.Set("link", p.Link)
 	}
 	if p.Query != "" {
 		q.Set("q", p.Query)
