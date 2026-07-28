@@ -1,6 +1,6 @@
 ---
 name: using-freehire
-description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs to discover the job market's filter vocabulary (categories, seniorities, regions, skills), or when measuring a CV's skills against live market demand. Covers auth, market vocabulary discovery, keyword + facet search, market-fit coverage, and application tracking — all with machine-readable `--json` output.
+description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs the user's own saved job-search profile before asking them what they want, when discovering the job market's filter vocabulary (categories, seniorities, regions, skills), or when measuring a CV's skills against live market demand. Covers auth, reading the saved profile, market vocabulary discovery, keyword + facet search, market-fit coverage, and application tracking — all with machine-readable `--json` output.
 ---
 
 # Using the freehire CLI
@@ -22,6 +22,20 @@ The key can also come from `FREEHIRE_TOKEN` (no stored file — good for sandbox
 non-zero exit; a 401 means "run `freehire auth login`".
 
 ## The core loop
+
+**0. Read the user's own profile before asking them anything.**
+
+```bash
+freehire profile                      # roles, skills, skills to avoid, geography, CV
+freehire --json profile | jq '.skills, .cv.total_years'
+```
+
+The person has already told freehire which roles and skills they want, which they
+would rather avoid, and where and how they will work. Start from that and say what
+you searched on; ask only about what it does not answer. It returns `null` data when
+they have saved none — then point them at `https://freehire.me/my/profile` rather
+than collecting the same answers in the conversation, because what they save there
+also drives their recommendations and alerts. Contact details are never included.
 
 **1. Discover what you can filter by — before guessing values.**
 
