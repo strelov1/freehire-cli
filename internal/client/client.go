@@ -345,3 +345,11 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (e
 	}
 	return env, nil
 }
+
+// GetProfile reads the caller's saved job-search profile: their specializations,
+// skills, excluded skills and location preferences, plus their CV projected without
+// its contact fields. Returns a null payload when the caller has saved none.
+func (c *Client) GetProfile(ctx context.Context) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/me/profile", nil)
+	return env.Data, err
+}
