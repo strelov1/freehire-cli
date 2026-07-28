@@ -79,6 +79,39 @@ freehire note <slug> a quick reminder  # free-text note (no quotes needed)
 freehire my --filter applied           # your tracked jobs with stage + note
 ```
 
+## A job freehire doesn't have
+
+When the person is looking at a vacancy that is not in the catalogue — they pasted a link,
+or a search came up empty for a company you know is hiring — hand it over instead of
+apologising:
+
+```bash
+freehire contribute https://acme.recruitee.com/o/senior-go
+freehire --json contribute <url> | jq '.status, .public_slug'
+freehire contributions                 # what you've handed over, and what became of it
+```
+
+One sequence answers, and `status` says which branch it took:
+
+| `status` | What happened | What to do next |
+|---|---|---|
+| `found` | we already carry it | use the returned `public_slug` — apply, save, track |
+| `tracked` | imported now; we already crawl this company | same, and say its other roles will follow |
+| `imported` | imported, and its board is new to us — **+1 AI credit** | same |
+| `queued` | nothing could read the page | tell them a maintainer will look; no credit yet |
+
+Reach for this the moment a link is in hand. `found`, `tracked` and `imported` all come back
+with a `public_slug`, which is the same handle every other command takes — so contributing a
+link and then tracking the job is two calls, not a dead end.
+
+Two things worth knowing so you don't mislead anyone. The credit is for the **board**, not
+the vacancy: only the first person to name a company earns it, and later links to that
+company are recorded but pay nothing. And `queued` does not mean rejected — it means we could
+not read that particular page.
+
+Do not use `freehire submissions` for this. That is the moderator review queue for
+hand-authored job cards, a different feature; the `submit` command that fed it is gone.
+
 ## Market-fit: how well do a CV's skills cover the market
 
 `market-fit` scores a skill list against the live open-vacancy market for a

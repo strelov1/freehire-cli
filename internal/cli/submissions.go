@@ -6,9 +6,12 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"github.com/strelov1/freehire-cli/internal/client"
 )
+
+// The `submit` command is gone: it wrote to the moderation queue for hand-authored job cards,
+// which is a different feature from contributing a link, and the shared verb made agents reach
+// for the wrong one. Handing freehire a URL is `freehire contribute`. What remains here is the
+// moderator's review queue.
 
 // submissionRow is the subset of a submission shown in CLI output. submitter_email is
 // present only on the moderator queue; review_reason only on a rejected submission.
@@ -19,57 +22,6 @@ type submissionRow struct {
 	Company        string `json:"company"`
 	ReviewReason   string `json:"review_reason"`
 	SubmitterEmail string `json:"submitter_email"`
-}
-
-// newSubmitCmd is the top-level `submit` command: any authenticated user queues a
-// vacancy for moderation. It mirrors `jobs add` but writes to the submission queue
-// instead of the live catalogue, and needs no special role.
-func newSubmitCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "submit",
-		Short: "Submit a job for moderation",
-		Long: "Submit a vacancy for review. --url, --title and --company are required. " +
-			"A moderator approves it before it appears in the catalogue; track it with " +
-			"`freehire submissions`.",
-		Args: cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, _ []string) error {
-			c, _, err := authedClient(cmd)
-			if err != nil {
-				return err
-			}
-			data, err := c.Submit(cmd.Context(), client.CreateJobParams{
-				URL:         mustString(cmd, "url"),
-				Source:      mustString(cmd, "source"),
-				Title:       mustString(cmd, "title"),
-				Company:     mustString(cmd, "company"),
-				Location:    mustString(cmd, "location"),
-				Description: mustString(cmd, "description"),
-				Remote:      mustBool(cmd, "remote"),
-			})
-			if err != nil {
-				return err
-			}
-			if wantJSON(cmd) {
-				printJSON(cmd, data)
-				return nil
-			}
-			var s submissionRow
-			if err := json.Unmarshal(data, &s); err != nil {
-				fmt.Fprintln(cmd.OutOrStdout(), "Submitted for review.")
-				return nil
-			}
-			fmt.Fprintf(cmd.OutOrStdout(), "Submitted for review: %s at %s (%s)\n", s.Title, s.Company, s.Status)
-			return nil
-		},
-	}
-	cmd.Flags().String("url", "", "canonical posting URL (required, dedup key)")
-	cmd.Flags().String("source", "", "real origin of the posting (default \"manual\"); e.g. greenhouse")
-	cmd.Flags().String("title", "", "job title (required)")
-	cmd.Flags().String("company", "", "company name (required)")
-	cmd.Flags().String("location", "", "free-text location")
-	cmd.Flags().String("description", "", "job description")
-	cmd.Flags().Bool("remote", false, "mark the job remote")
-	return cmd
 }
 
 // newSubmissionsCmd is the `submissions` group. With no subcommand it lists the
