@@ -15,17 +15,17 @@ import (
 func cvFakeAPI(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/me/cvs/5/tailor-context", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76/tailor-context", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("tailor-context method = %s, want GET", r.Method)
 		}
 		w.Write([]byte(`{"data":{"verdict":"Good Fit","missing_gap":[{"text":"Kubernetes"}]}}`))
 	})
-	mux.HandleFunc("/api/v1/me/cvs/5/pdf", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76/pdf", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")
 		w.Write([]byte("%PDF-1.7 fake"))
 	})
-	mux.HandleFunc("/api/v1/me/cvs/5", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			w.Write([]byte(`{"data":{"id":5,"document":{"summary":"eng"}}}`))
@@ -51,10 +51,13 @@ func cvFakeAPI(t *testing.T) *httptest.Server {
 	return srv
 }
 
+// testCV is an id the API would hand out: opaque, and nothing the CLI parses.
+const testCV = "3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76"
+
 func TestClient_TailorCVContext(t *testing.T) {
 	srv := cvFakeAPI(t)
 	c := New(srv.URL, "good", srv.Client())
-	data, err := c.TailorCVContext(context.Background(), 5)
+	data, err := c.TailorCVContext(context.Background(), testCV)
 	if err != nil {
 		t.Fatalf("TailorCVContext: %v", err)
 	}
@@ -66,7 +69,7 @@ func TestClient_TailorCVContext(t *testing.T) {
 func TestClient_GetCV(t *testing.T) {
 	srv := cvFakeAPI(t)
 	c := New(srv.URL, "good", srv.Client())
-	data, err := c.GetCV(context.Background(), 5)
+	data, err := c.GetCV(context.Background(), testCV)
 	if err != nil {
 		t.Fatalf("GetCV: %v", err)
 	}
@@ -79,7 +82,7 @@ func TestClient_PatchCV(t *testing.T) {
 	srv := cvFakeAPI(t)
 	c := New(srv.URL, "good", srv.Client())
 	patch := json.RawMessage(`{"op":"add_bullet","experience":0,"value":"Led migration"}`)
-	data, err := c.PatchCV(context.Background(), 5, patch)
+	data, err := c.PatchCV(context.Background(), testCV, patch)
 	if err != nil {
 		t.Fatalf("PatchCV: %v", err)
 	}
@@ -91,7 +94,7 @@ func TestClient_PatchCV(t *testing.T) {
 func TestClient_RenderCV(t *testing.T) {
 	srv := cvFakeAPI(t)
 	c := New(srv.URL, "good", srv.Client())
-	pdf, err := c.RenderCV(context.Background(), 5)
+	pdf, err := c.RenderCV(context.Background(), testCV)
 	if err != nil {
 		t.Fatalf("RenderCV: %v", err)
 	}
@@ -103,7 +106,7 @@ func TestClient_RenderCV(t *testing.T) {
 func TestClient_RenderCV_unauthorized(t *testing.T) {
 	srv := cvFakeAPI(t)
 	c := New(srv.URL, "bad", srv.Client())
-	_, err := c.RenderCV(context.Background(), 5)
+	_, err := c.RenderCV(context.Background(), testCV)
 	var apiErr *APIError
 	if !errors.As(err, &apiErr) || apiErr.Status != http.StatusUnauthorized {
 		t.Errorf("RenderCV unauth err = %v, want APIError 401", err)
