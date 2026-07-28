@@ -13,14 +13,14 @@ import (
 func cvFakeAPI(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/me/cvs/5/tailor-context", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76/tailor-context", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"data":{"verdict":"Good Fit","missing_gap":[{"text":"Kubernetes"}]}}`))
 	})
-	mux.HandleFunc("/api/v1/me/cvs/5/pdf", func(w http.ResponseWriter, _ *http.Request) {
+	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76/pdf", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/pdf")
 		w.Write([]byte("%PDF-1.7 fake"))
 	})
-	mux.HandleFunc("/api/v1/me/cvs/5", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch {
 			b, _ := io.ReadAll(r.Body)
 			if !strings.Contains(string(b), `"op":"add_bullet"`) {
@@ -48,10 +48,13 @@ func cvEnv(t *testing.T, srv *httptest.Server) {
 	t.Setenv("FREEHIRE_API_URL", srv.URL)
 }
 
+// testCV is an id the API would hand out: opaque, and nothing the CLI parses.
+const testCV = "3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76"
+
 func TestCVContext(t *testing.T) {
 	srv := cvFakeAPI(t)
 	cvEnv(t, srv)
-	out, err := run(t, "cv", "context", "5")
+	out, err := run(t, "cv", "context", testCV)
 	if err != nil {
 		t.Fatalf("cv context: %v", err)
 	}
@@ -63,11 +66,11 @@ func TestCVContext(t *testing.T) {
 func TestCVEditWithPatchFlag(t *testing.T) {
 	srv := cvFakeAPI(t)
 	cvEnv(t, srv)
-	out, err := run(t, "cv", "edit", "5", "--patch", `{"op":"add_bullet","experience":0,"value":"Led migration"}`)
+	out, err := run(t, "cv", "edit", testCV, "--patch", `{"op":"add_bullet","experience":0,"value":"Led migration"}`)
 	if err != nil {
 		t.Fatalf("cv edit: %v", err)
 	}
-	if !strings.Contains(out, "CV 5 updated") {
+	if !strings.Contains(out, "CV "+testCV+" updated") {
 		t.Errorf("edit output = %q", out)
 	}
 }
@@ -76,7 +79,7 @@ func TestCVRenderWritesFile(t *testing.T) {
 	srv := cvFakeAPI(t)
 	cvEnv(t, srv)
 	out := t.TempDir() + "/out.pdf"
-	msg, err := run(t, "cv", "render", "5", "--out", out)
+	msg, err := run(t, "cv", "render", testCV, "--out", out)
 	if err != nil {
 		t.Fatalf("cv render: %v", err)
 	}

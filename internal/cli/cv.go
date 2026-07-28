@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -110,7 +109,7 @@ func newCVEditCmd() *cobra.Command {
 			if wantJSON(cmd) {
 				printJSON(cmd, data)
 			} else {
-				fmt.Fprintf(cmd.OutOrStdout(), "CV %d updated\n", id)
+				fmt.Fprintf(cmd.OutOrStdout(), "CV %s updated\n", id)
 			}
 			return nil
 		},
@@ -145,7 +144,7 @@ func newCVRenderCmd() *cobra.Command {
 				return err
 			}
 			if out == "" {
-				out = fmt.Sprintf("cv-%d.pdf", id)
+				out = fmt.Sprintf("cv-%s.pdf", id)
 			}
 			if err := os.WriteFile(out, pdf, 0o644); err != nil {
 				return err
@@ -158,11 +157,15 @@ func newCVRenderCmd() *cobra.Command {
 	return cmd
 }
 
-// cvID parses the positional CV id argument.
-func cvID(arg string) (int64, error) {
-	id, err := strconv.ParseInt(arg, 10, 64)
-	if err != nil {
-		return 0, fmt.Errorf("invalid cv id %q: must be a number", arg)
+// cvID reads the positional CV id argument. The id is opaque — the API hands it
+// out and the CLI only passes it back — so there is deliberately no format check
+// here beyond "not empty": validating the shape would bake today's format into a
+// released binary, which is exactly what an opaque id is meant to avoid. A wrong
+// id comes back from the server as a 404.
+func cvID(arg string) (string, error) {
+	id := strings.TrimSpace(arg)
+	if id == "" {
+		return "", fmt.Errorf("a cv id is required — copy it from `freehire cv` or the tailoring workspace URL")
 	}
 	return id, nil
 }
