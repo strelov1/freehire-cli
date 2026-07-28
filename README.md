@@ -51,6 +51,8 @@ freehire unsave <slug>                                         # remove a bookma
 freehire stage <slug> <stage>                                  # set application stage (applied→…→offer, or rejected/withdrawn)
 freehire note <slug> a quick reminder                          # attach a free-text note (trailing args; no quotes needed)
 freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
+freehire contribute <url>                                      # hand freehire a job link (see below)
+freehire contributions                                         # boards you've contributed
 freehire inbox push < mail.json                                # upload mail your own client fetched
 freehire inbox list --unclassified --body                      # mail still awaiting a verdict, with its text
 freehire inbox triage <id> rejection --slug <slug>             # record what a message is + link it
@@ -91,6 +93,28 @@ freehire jobs edit <slug> --title "Staff Go Developer"         # partial: only t
 the job is flagged as manually added (that comes from the moderator authorship). `--description`
 is stored and rendered as HTML, so pass HTML markup. The URL is the dedup key — re-running `add`
 with the same URL updates the posting.
+
+## Contributing a link
+
+`freehire contribute <url>` hands over any vacancy or ATS board link. One sequence answers,
+whichever surface you use:
+
+| Outcome | Meaning |
+|---|---|
+| already in the catalogue | we carry that posting; you get its URL |
+| added, company already crawled | we read the page and imported it; the rest of that company's roles follow on the next crawl |
+| added, company new to us | imported, and its board is queued for crawling — **+1 AI credit** |
+| queued | nothing could read the page, so a maintainer will look; not credited |
+
+The board, not the vacancy, is what earns the credit, and only the first person to name a
+board earns it — later links to the same company are still recorded (they tell us the board
+matters) but pay nothing.
+
+```bash
+freehire contribute https://acme.recruitee.com/o/senior-go
+freehire --json contribute https://acme.recruitee.com/o/senior-go | jq '.status, .public_slug'
+freehire contributions
+```
 
 ## Application mail — bring your own client
 

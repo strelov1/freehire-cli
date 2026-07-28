@@ -267,14 +267,22 @@ func (c *Client) EditJob(ctx context.Context, slug string, p EditJobParams) (jso
 	return env.Data, err
 }
 
-// Submit queues a vacancy for moderation (POST /submissions). The body shape is the
-// same as a moderator create; the server stores it as pending and returns it.
-func (c *Client) Submit(ctx context.Context, p CreateJobParams) (json.RawMessage, error) {
-	body, err := json.Marshal(p)
+// Contribute hands one job link to freehire (POST /jobs/resolve) — the same intake the
+// website, the Telegram bot and the browser extension use. The server checks the catalog,
+// imports the vacancy when anything can read it, and records the board behind it for
+// onboarding either way; the answer says which of those happened.
+func (c *Client) Contribute(ctx context.Context, link string) (json.RawMessage, error) {
+	body, err := json.Marshal(map[string]string{"url": link, "surface": "cli"})
 	if err != nil {
 		return nil, err
 	}
-	env, err := c.do(ctx, http.MethodPost, "/api/v1/submissions", bytes.NewReader(body))
+	env, err := c.do(ctx, http.MethodPost, "/api/v1/jobs/resolve", bytes.NewReader(body))
+	return env.Data, err
+}
+
+// MyContributions lists the boards the caller has contributed (GET /me/contributions).
+func (c *Client) MyContributions(ctx context.Context) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/me/contributions", nil)
 	return env.Data, err
 }
 
