@@ -36,6 +36,7 @@ never stored. Omit `--token` to be prompted on stdin.
 ## Use
 
 ```bash
+freehire profile                                               # your saved roles, skills, geography and CV (no contacts)
 freehire facets                                                # list every filter's live values + counts (what to filter by)
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)

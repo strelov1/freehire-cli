@@ -1,6 +1,6 @@
 ---
 name: using-freehire
-description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs to discover the job market's filter vocabulary (categories, seniorities, regions, skills), when measuring a CV's skills against live market demand, or when syncing and sorting a job seeker's application mail from their own mail client (himalaya, mbsync, IMAP) into the tracker. Covers auth, market vocabulary discovery, keyword + facet search, market-fit coverage, application tracking, and agent-driven mail triage — all with machine-readable `--json` output.
+description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs the user's own saved job-search profile before asking them what they want, when discovering the job market's filter vocabulary (categories, seniorities, regions, skills), when measuring a CV's skills against live market demand, or when syncing and sorting a job seeker's application mail from their own mail client (himalaya, mbsync, IMAP) into the tracker. Covers auth, reading the saved profile, market vocabulary discovery, keyword + facet search, market-fit coverage, application tracking, and agent-driven mail triage — all with machine-readable `--json` output.
 ---
 
 # Using the freehire CLI
@@ -22,6 +22,20 @@ The key can also come from `FREEHIRE_TOKEN` (no stored file — good for sandbox
 non-zero exit; a 401 means "run `freehire auth login`".
 
 ## The core loop
+
+**0. Read the user's own profile before asking them anything.**
+
+```bash
+freehire profile                      # roles, skills, skills to avoid, geography, CV
+freehire --json profile | jq '.skills, .cv.total_years'
+```
+
+The person has already told freehire which roles and skills they want, which they
+would rather avoid, and where and how they will work. Start from that and say what
+you searched on; ask only about what it does not answer. It returns `null` data when
+they have saved none — then point them at `https://freehire.me/my/profile` rather
+than collecting the same answers in the conversation, because what they save there
+also drives their recommendations and alerts. Contact details are never included.
 
 **1. Discover what you can filter by — before guessing values.**
 
@@ -85,8 +99,10 @@ skill's market demand.
 ## Tailoring a CV to a vacancy (beta)
 
 After a fit analysis, a tailored CV can be reframed toward a specific vacancy. The
-tailoring session gives you a **CV id**; drive it with these commands (they act as the
-user via the session key):
+tailoring workspace on the site creates the tailored copy and shows its **CV id** —
+an opaque identifier, visible in the workspace URL (`/tailor/<job>?cv=<id>`). Pass
+that id to these commands; they act as the user with the API key you signed in
+with, the same one every other command uses:
 
 ```bash
 freehire cv context <id>              # the fit analysis to reframe toward (JSON)
@@ -94,6 +110,9 @@ freehire cv get <id>                  # the current CV document (JSON)
 freehire cv edit <id> --patch '<json>'  # apply ONE field-level patch (or pipe on stdin)
 freehire cv render <id> --out cv.pdf  # download the ATS PDF to inspect
 ```
+
+The id is opaque: copy it, do not construct or guess one. An id that is not the
+caller's own comes back as "not found" — the same answer as one that never existed.
 
 A patch is a `cv.Patch` object — one `op` plus its address/payload. Ops:
 `set_summary`, `set_header_field`, `add_bullet`, `replace_bullet`, `remove_bullet`,
