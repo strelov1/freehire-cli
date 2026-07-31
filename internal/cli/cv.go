@@ -19,8 +19,9 @@ func newCVCmd() *cobra.Command {
 		Use:   "cv",
 		Short: "Tailor a CV to a vacancy (beta)",
 		Long: "Read and edit a tailored CV during a tailoring session. `context` shows the fit " +
-			"analysis to reframe toward, `get` dumps the CV document, `edit` applies one " +
-			"field-level patch, and `render` downloads the PDF. Addressed by CV id.",
+			"analysis to reframe toward, `get` dumps the CV document, `edit` changes it by path, " +
+			"and `render` downloads the PDF. Addressed by CV id. Every edit is recorded and can " +
+			"be undone on its own from the tailoring workspace.",
 	}
 	cv.AddCommand(newCVContextCmd(), newCVGetCmd(), newCVEditCmd(), newCVRenderCmd())
 	return cv
