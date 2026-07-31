@@ -212,8 +212,14 @@ func newMyCmd() *cobra.Command {
 				if r.Notes != nil && *r.Notes != "" {
 					note = "  — " + trunc(*r.Notes, 40)
 				}
+				// A pruned posting leaves the application standing with no slug to print;
+				// the dash says the listing is gone rather than that the row is broken.
+				title, company, slug := r.RoleTitle, r.Company, "—"
+				if r.Job != nil {
+					title, company, slug = r.Job.Title, r.Job.Company, r.Job.PublicSlug
+				}
 				fmt.Fprintf(out, "%-40s  %-20s  %-10s  %s%s\n",
-					trunc(r.Job.Title, 40), trunc(r.Job.Company, 20), r.status(), r.Job.PublicSlug, note)
+					trunc(title, 40), trunc(company, 20), r.status(), slug, note)
 			}
 			fmt.Fprintf(out, "\n%d of %d shown\n", len(rows), res.Total)
 			return nil
@@ -228,7 +234,14 @@ func newMyCmd() *cobra.Command {
 // myJobRow is one row of the `my` listing: the job plus the caller's interaction
 // timestamps, application stage, and notes.
 type myJobRow struct {
-	Job       jobRow  `json:"job"`
+	// Job is absent once the catalogue has removed the posting — cmd/prune deletes
+	// postings on a schedule, and an application outlives the inventory of it. A value
+	// here would silently decode `"job": null` to the zero struct and print a blank row.
+	Job *jobRow `json:"job"`
+	// Company and RoleTitle are carried by the application itself and are always present,
+	// which is what makes a row renderable without a posting.
+	Company   string  `json:"company_slug"`
+	RoleTitle string  `json:"role_title"`
 	SavedAt   *string `json:"saved_at"`
 	AppliedAt *string `json:"applied_at"`
 	Stage     *string `json:"stage"`
