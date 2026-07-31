@@ -140,28 +140,42 @@ with, the same one every other command uses:
 ```bash
 freehire cv context <id>              # the fit analysis to reframe toward (JSON)
 freehire cv get <id>                  # the current CV document (JSON)
-freehire cv edit <id> --patch '<json>'  # apply ONE field-level patch (or pipe on stdin)
+freehire cv edit <id> --set 'path=value'  # one edit; --ops '<json>' or stdin for several
 freehire cv render <id> --out cv.pdf  # download the ATS PDF to inspect
 ```
 
 The id is opaque: copy it, do not construct or guess one. An id that is not the
 caller's own comes back as "not found" — the same answer as one that never existed.
 
-A patch is a `cv.Patch` object — one `op` plus its address/payload. Ops:
-`set_summary`, `set_header_field`, `add_bullet`, `replace_bullet`, `remove_bullet`,
-`reorder_bullets`, `set_skill_group`. Examples:
+An edit is a kind (`set`, `insert`, `remove`, `move`) and a path into the document.
+Paths reach everything: `summary`, `experience[2].bullets[1]`, `experience[0].stack[0]`,
+`skills[0].items[3]`, `education[1].degree`, `certifications[0].issuer`, `style.font_size`.
+Indices are 0-based, counted over what `cv get` returned.
 
 ```bash
-freehire cv edit 5 --patch '{"op":"set_summary","value":"Senior backend engineer…"}'
-freehire cv edit 5 --patch '{"op":"add_bullet","experience":0,"value":"Cut p99 latency 40%"}'
-freehire cv edit 5 --patch '{"op":"reorder_bullets","experience":0,"order":[2,0,1]}'
+freehire cv edit <id> --set 'summary=Senior backend engineer…'
+freehire cv edit <id> --set 'experience[0].bullets[1]=Cut p99 latency 40%' --evidence <atom-id>
+freehire cv edit <id> --insert 'experience[0].bullets[0]=Ran the migration' --evidence <atom-id>
+freehire cv edit <id> --remove 'skills[2]'
+freehire cv edit <id> --ops '[{"kind":"move","path":"experience[0].bullets[2]","to":0}]'
 ```
 
-**The honest wall — never fabricate.** Read `cv context` and split the work:
+Send edits that belong together in ONE call: they land as one entry in the candidate's
+history and cost one round instead of several. The whole batch applies or none of it does —
+an unknown path or an index past the end is a 422 and the CV is untouched.
+
+Every edit is recorded and can be undone on its own from the tailoring workspace, so the
+candidate can see exactly what you changed and reverse any one of it.
+
+**The honest wall — never fabricate.** Editing with an API key edits as the tailoring agent,
+and the server holds you to it: the candidate's own name, email, phone and links are refused,
+and anything stating what they DID — a summary, a bullet, a technology, a skill — needs
+`--evidence <atom-id>`, the id of something they asserted. An uncited edit refuses the whole
+batch. Read `cv context` and split the work:
 
 - `missing_have` requirements: the candidate *has* the evidence but the CV omits it —
-  **reframe** an existing bullet toward the vacancy's language (`replace_bullet` /
-  `add_bullet` grounded in what they already did).
+  **reframe** an existing bullet toward the vacancy's language (`--set` on the bullet's
+  path, grounded in what they already did).
 - `missing_gap` requirements: a genuine gap — **ask the candidate first** ("do you know
   X? how did you use it?"). Only write it after they confirm real experience. On "no",
   leave it out; a gap belongs in the cover letter, never keyword-stuffed into the CV.

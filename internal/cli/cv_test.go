@@ -23,8 +23,8 @@ func cvFakeAPI(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPatch {
 			b, _ := io.ReadAll(r.Body)
-			if !strings.Contains(string(b), `"op":"add_bullet"`) {
-				t.Errorf("patch body missing op: %s", b)
+			if !strings.Contains(string(b), `"ops"`) || !strings.Contains(string(b), `"kind"`) {
+				t.Errorf("edit body is not a batch of path operations: %s", b)
 			}
 		}
 		w.Write([]byte(`{"data":{"id":5,"title":"Tailored"}}`))
@@ -63,10 +63,11 @@ func TestCVContext(t *testing.T) {
 	}
 }
 
-func TestCVEditWithPatchFlag(t *testing.T) {
+func TestCVEditWithOpsFlag(t *testing.T) {
 	srv := cvFakeAPI(t)
 	cvEnv(t, srv)
-	out, err := run(t, "cv", "edit", testCV, "--patch", `{"op":"add_bullet","experience":0,"value":"Led migration"}`)
+	out, err := run(t, "cv", "edit", testCV, "--ops",
+		`[{"kind":"insert","path":"experience[0].bullets[0]","value":"Led migration"}]`)
 	if err != nil {
 		t.Fatalf("cv edit: %v", err)
 	}
@@ -100,20 +101,80 @@ func TestCVInvalidID(t *testing.T) {
 	}
 }
 
-func TestReadPatchFromStdin(t *testing.T) {
-	cmd := newCVEditCmd()
-	cmd.SetIn(strings.NewReader(`{"op":"set_summary","value":"x"}`))
-	patch, err := readPatch(cmd)
-	if err != nil {
-		t.Fatalf("readPatch stdin: %v", err)
+// Three shapes reach the same body, because all three are things a caller has in hand: one
+// edit on the command line, a bare array, or a single edit object piped in.
+func TestReadEditsAcceptsEveryShape(t *testing.T) {
+	shorthand := newCVEditCmd()
+	if err := shorthand.Flags().Set("set", "experience[0].bullets[1]=Cut p99 latency"); err != nil {
+		t.Fatalf("set flag: %v", err)
 	}
-	if !strings.Contains(string(patch), "set_summary") {
-		t.Errorf("patch = %s", patch)
+	body, err := readEdits(shorthand)
+	if err != nil {
+		t.Fatalf("readEdits(--set): %v", err)
+	}
+	for _, want := range []string{`"kind":"set"`, `"path":"experience[0].bullets[1]"`, "Cut p99 latency"} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("body %s is missing %s", body, want)
+		}
+	}
+
+	piped := newCVEditCmd()
+	piped.SetIn(strings.NewReader(`{"kind":"set","path":"summary","value":"x"}`))
+	body, err = readEdits(piped)
+	if err != nil {
+		t.Fatalf("readEdits(stdin): %v", err)
+	}
+	if !strings.Contains(string(body), `"ops"`) {
+		t.Errorf("a single edit was not wrapped into a batch: %s", body)
+	}
+
+	array := newCVEditCmd()
+	if err := array.Flags().Set("ops", `[{"kind":"remove","path":"skills[0]"}]`); err != nil {
+		t.Fatalf("ops flag: %v", err)
+	}
+	if body, err = readEdits(array); err != nil {
+		t.Fatalf("readEdits(--ops): %v", err)
+	} else if !strings.Contains(string(body), `"ops"`) {
+		t.Errorf("an array was not wrapped into a batch: %s", body)
+	}
+}
+
+func TestReadEditsRefusesAnAmbiguousOrEmptyCall(t *testing.T) {
+	both := newCVEditCmd()
+	_ = both.Flags().Set("set", "summary=x")
+	_ = both.Flags().Set("remove", "skills[0]")
+	if _, err := readEdits(both); err == nil {
+		t.Error("two shorthand edits in one call should error rather than pick one")
+	}
+
+	malformed := newCVEditCmd()
+	_ = malformed.Flags().Set("set", "summary")
+	if _, err := readEdits(malformed); err == nil {
+		t.Error("--set without a value should error")
 	}
 
 	empty := newCVEditCmd()
 	empty.SetIn(strings.NewReader("   "))
-	if _, err := readPatch(empty); err == nil {
-		t.Error("empty patch should error")
+	if _, err := readEdits(empty); err == nil {
+		t.Error("an empty edit should error")
+	}
+}
+
+// A claim about the candidate needs its citation carried through to the server, which is
+// where the rule is enforced.
+func TestReadEditsCarriesTheEvidenceId(t *testing.T) {
+	cmd := newCVEditCmd()
+	_ = cmd.Flags().Set("set", "experience[0].bullets[0]=Ran the cluster")
+	_ = cmd.Flags().Set("evidence", "a71f-…")
+	_ = cmd.Flags().Set("note", "under the Kubernetes requirement")
+
+	body, err := readEdits(cmd)
+	if err != nil {
+		t.Fatalf("readEdits: %v", err)
+	}
+	for _, want := range []string{`"evidence_id":"a71f-…"`, `"note":"under the Kubernetes requirement"`} {
+		if !strings.Contains(string(body), want) {
+			t.Errorf("body %s is missing %s", body, want)
+		}
 	}
 }

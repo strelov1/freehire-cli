@@ -31,8 +31,8 @@ func cvFakeAPI(t *testing.T) *httptest.Server {
 			w.Write([]byte(`{"data":{"id":5,"document":{"summary":"eng"}}}`))
 		case http.MethodPatch:
 			b, _ := io.ReadAll(r.Body)
-			if !strings.Contains(string(b), `"op":"add_bullet"`) {
-				t.Errorf("patch body did not carry the op: %s", b)
+			if !strings.Contains(string(b), `"ops"`) || !strings.Contains(string(b), `"path"`) {
+				t.Errorf("edit body did not carry path operations: %s", b)
 			}
 			w.Write([]byte(`{"data":{"id":5,"title":"Tailored"}}`))
 		default:
@@ -78,16 +78,16 @@ func TestClient_GetCV(t *testing.T) {
 	}
 }
 
-func TestClient_PatchCV(t *testing.T) {
+func TestClient_EditCV(t *testing.T) {
 	srv := cvFakeAPI(t)
 	c := New(srv.URL, "good", srv.Client())
-	patch := json.RawMessage(`{"op":"add_bullet","experience":0,"value":"Led migration"}`)
-	data, err := c.PatchCV(context.Background(), testCV, patch)
+	body := json.RawMessage(`{"ops":[{"kind":"insert","path":"experience[0].bullets[0]","value":"Led migration"}]}`)
+	data, err := c.EditCV(context.Background(), testCV, body)
 	if err != nil {
-		t.Fatalf("PatchCV: %v", err)
+		t.Fatalf("EditCV: %v", err)
 	}
 	if !strings.Contains(string(data), "Tailored") {
-		t.Errorf("patch result = %s", data)
+		t.Errorf("edit result = %s", data)
 	}
 }
 
