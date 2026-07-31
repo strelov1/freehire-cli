@@ -81,20 +81,26 @@ func newCVGetCmd() *cobra.Command {
 func newCVEditCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "edit <cv-id>",
-		Short: "Apply one field-level patch to a CV",
-		Long: "Apply a single field-level patch to a CV. The patch is a cv.Patch JSON object " +
-			"passed via --patch or on stdin, e.g. " +
-			`'{"op":"add_bullet","experience":0,"value":"Led the migration"}'. Ops: ` +
-			"set_summary, set_header_field, add_bullet, replace_bullet, remove_bullet, " +
-			"reorder_bullets, set_skill_group, set_stack. The server sanitizes and validates it " +
-			"(a bad patch is a 422).",
+		Short: "Edit a CV by path",
+		Long: "Edit a CV. An edit is a kind (set, insert, remove, move) and a path into the " +
+			"document — `summary`, `experience[2].bullets[1]`, `skills[0].items[3]`, " +
+			"`education[1].degree`, `style.font_size`. Indices are 0-based.\n\n" +
+			"One edit fits on the command line:\n" +
+			"  freehire cv edit <cv-id> --set 'experience[0].bullets[1]=Cut p99 latency 40%'\n" +
+			"  freehire cv edit <cv-id> --remove 'experience[0].bullets[2]'\n\n" +
+			"Several go in as JSON, via --ops or on stdin:\n" +
+			`  --ops '[{"kind":"set","path":"summary","value":"…"}]'` + "\n\n" +
+			"The whole batch applies or none of it does: an unknown path or an index past the " +
+			"end is a 422 and the CV is untouched. Editing with an API key edits as the " +
+			"tailoring agent, so the candidate's own header fields are refused, and anything " +
+			"stating what they did needs --evidence (the id of a banked achievement).",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id, err := cvID(args[0])
 			if err != nil {
 				return err
 			}
-			patch, err := readPatch(cmd)
+			body, err := readEdits(cmd)
 			if err != nil {
 				return err
 			}
@@ -102,7 +108,7 @@ func newCVEditCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := c.PatchCV(cmd.Context(), id, patch)
+			data, err := c.EditCV(cmd.Context(), id, body)
 			if err != nil {
 				return err
 			}
@@ -114,7 +120,12 @@ func newCVEditCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().String("patch", "", "the cv.Patch JSON (read from stdin when omitted)")
+	cmd.Flags().String("set", "", "one edit as path=value, e.g. 'experience[0].bullets[1]=Cut p99 latency 40%'")
+	cmd.Flags().String("insert", "", "insert at a position, as path=value")
+	cmd.Flags().String("remove", "", "remove what is at a path")
+	cmd.Flags().String("evidence", "", "the banked achievement an edit rests on (required for a claim about the candidate)")
+	cmd.Flags().String("note", "", "one line on why, shown beside the edit in the CV's history")
+	cmd.Flags().String("ops", "", "the edits as JSON (read from stdin when no flag is given)")
 	return cmd
 }
 
@@ -170,18 +181,107 @@ func cvID(arg string) (string, error) {
 	return id, nil
 }
 
-// readPatch returns the patch JSON from --patch, or reads it from stdin when the flag is
-// absent. It errors on an empty patch rather than sending a no-op to the server.
-func readPatch(cmd *cobra.Command) (json.RawMessage, error) {
-	if p, _ := cmd.Flags().GetString("patch"); strings.TrimSpace(p) != "" {
-		return json.RawMessage(p), nil
-	}
-	b, err := io.ReadAll(cmd.InOrStdin())
-	if err != nil {
+// readEdits builds the request body for `cv edit`.
+//
+// The shorthand flags cover the common case — one edit, on one line — and JSON covers the
+// rest. They are deliberately not mixable: a command that took both would have to decide
+// which order they apply in, and the answer would only ever be guessed at.
+//
+// JSON is accepted in three shapes, because all three are things a caller reasonably has in
+// hand: the whole body, a bare array of edits, or a single edit object.
+func readEdits(cmd *cobra.Command) (json.RawMessage, error) {
+	note, _ := cmd.Flags().GetString("note")
+	if op, ok, err := shorthandEdit(cmd); err != nil {
 		return nil, err
+	} else if ok {
+		return json.Marshal(editRequest{Ops: []editOp{op}, Note: note})
 	}
-	if strings.TrimSpace(string(b)) == "" {
-		return nil, fmt.Errorf("no patch provided: pass --patch '<json>' or pipe it on stdin")
+
+	raw, _ := cmd.Flags().GetString("ops")
+	if strings.TrimSpace(raw) == "" {
+		b, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			return nil, err
+		}
+		raw = string(b)
 	}
-	return json.RawMessage(b), nil
+	if strings.TrimSpace(raw) == "" {
+		return nil, fmt.Errorf("no edit provided: pass --set 'path=value', --remove 'path', " +
+			"--ops '<json>', or pipe the JSON on stdin")
+	}
+	return normalizeEdits(raw, note)
+}
+
+// editOp mirrors one operation on the wire.
+type editOp struct {
+	Kind       string `json:"kind"`
+	Path       string `json:"path"`
+	Value      any    `json:"value,omitempty"`
+	EvidenceID string `json:"evidence_id,omitempty"`
+}
+
+type editRequest struct {
+	Ops  []editOp `json:"ops"`
+	Note string   `json:"note,omitempty"`
+}
+
+// shorthandEdit reads --set / --insert / --remove. Exactly one may be given.
+func shorthandEdit(cmd *cobra.Command) (editOp, bool, error) {
+	evidence, _ := cmd.Flags().GetString("evidence")
+	var (
+		found editOp
+		count int
+	)
+	for kind, flag := range map[string]string{"set": "set", "insert": "insert", "remove": "remove"} {
+		v, _ := cmd.Flags().GetString(flag)
+		if strings.TrimSpace(v) == "" {
+			continue
+		}
+		count++
+		op := editOp{Kind: kind, EvidenceID: evidence}
+		if kind == "remove" {
+			op.Path = strings.TrimSpace(v)
+		} else {
+			path, value, ok := strings.Cut(v, "=")
+			if !ok {
+				return editOp{}, false, fmt.Errorf("--%s takes path=value, e.g. --%s 'summary=Ten years of Go'", flag, flag)
+			}
+			op.Path, op.Value = strings.TrimSpace(path), value
+		}
+		found = op
+	}
+	if count > 1 {
+		return editOp{}, false, fmt.Errorf("pass one of --set, --insert or --remove; for several edits use --ops '<json>'")
+	}
+	return found, count == 1, nil
+}
+
+// normalizeEdits accepts the whole body, a bare array of edits, or a single edit, and
+// returns the body the API expects.
+func normalizeEdits(raw, note string) (json.RawMessage, error) {
+	trimmed := strings.TrimSpace(raw)
+	switch {
+	case strings.HasPrefix(trimmed, "["):
+		var ops []json.RawMessage
+		if err := json.Unmarshal([]byte(trimmed), &ops); err != nil {
+			return nil, fmt.Errorf("the edits are not valid JSON: %w", err)
+		}
+		return json.Marshal(map[string]any{"ops": ops, "note": note})
+	case strings.Contains(trimmed, `"ops"`):
+		if note == "" {
+			return json.RawMessage(trimmed), nil
+		}
+		var body map[string]any
+		if err := json.Unmarshal([]byte(trimmed), &body); err != nil {
+			return nil, fmt.Errorf("the edits are not valid JSON: %w", err)
+		}
+		body["note"] = note
+		return json.Marshal(body)
+	default:
+		var one json.RawMessage
+		if err := json.Unmarshal([]byte(trimmed), &one); err != nil {
+			return nil, fmt.Errorf("the edit is not valid JSON: %w", err)
+		}
+		return json.Marshal(map[string]any{"ops": []json.RawMessage{one}, "note": note})
+	}
 }

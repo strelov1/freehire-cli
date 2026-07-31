@@ -26,11 +26,16 @@ func (c *Client) GetCV(ctx context.Context, cvID string) (json.RawMessage, error
 	return env.Data, err
 }
 
-// PatchCV applies one field-level patch to a CV (PATCH /me/cvs/:id). patch is the raw
-// cv.Patch JSON (op + address + payload); the server sanitizes and validates it, so a
-// malformed patch comes back as a 422 APIError.
-func (c *Client) PatchCV(ctx context.Context, cvID string, patch json.RawMessage) (json.RawMessage, error) {
-	env, err := c.do(ctx, http.MethodPatch, cvPath(cvID), bytes.NewReader(patch))
+// EditCV applies a batch of path operations to a CV (PATCH /me/cvs/:id). body is the raw
+// request JSON — `{"ops":[…]}`, each operation a kind (set/insert/remove/move) and a path
+// into the document. The server validates and sanitizes, so a malformed batch comes back as
+// a 422 APIError and nothing is applied.
+//
+// A key edits as the tailoring agent, which the server holds to the agent's rules: the
+// candidate's own header fields are refused, and an operation stating something about them
+// needs the `evidence_id` of a banked achievement.
+func (c *Client) EditCV(ctx context.Context, cvID string, body json.RawMessage) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodPatch, cvPath(cvID), bytes.NewReader(body))
 	return env.Data, err
 }
 
