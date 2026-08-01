@@ -208,15 +208,31 @@ Conventions: results go to **stdout**, errors to **stderr**, and a non-zero exit
 code signals failure (e.g. an unauthenticated call exits non-zero with
 `run \`freehire auth login\``).
 
-An agent **skill** ships in [`skills/using-freehire/SKILL.md`](skills/using-freehire/SKILL.md):
-it teaches the discover → search → apply loop, including `facets` and `market-fit`.
-Drop it into a Claude Code (or compatible) skills directory, or install this repo as a
-**Claude Code plugin** to get the skill wired up automatically:
+## Agent skills and slash commands
+
+Six agent **skills** ship in [`skills/`](skills/), one per task rather than one per
+tool, so an agent loads what the question needs and not the whole surface:
+
+| Skill | Covers |
+|---|---|
+| [`using-freehire`](skills/using-freehire/SKILL.md) | install, auth, and the map of the rest |
+| [`freehire-job-search`](skills/freehire-job-search/SKILL.md) | profile → facets → search → job/company, contributing a link, reading the inactive-posting signal |
+| [`freehire-track-applications`](skills/freehire-track-applications/SKILL.md) | apply, save, stage, note, `my`, and reporting a posting that never answered |
+| [`freehire-market-fit`](skills/freehire-market-fit/SKILL.md) | scoring a stack against live vacancy demand |
+| [`freehire-tailor-cv`](skills/freehire-tailor-cv/SKILL.md) | reframing a CV toward one vacancy, and the evidence rule |
+| [`freehire-mail-triage`](skills/freehire-mail-triage/SKILL.md) | pushing, judging and linking application mail |
+
+Drop them into a Claude Code (or compatible) skills directory, or install this repo as a
+**Claude Code plugin** to get the skills *and* the slash commands wired up automatically:
 
 ```
 /plugin marketplace add strelov1/freehire-cli
 /plugin install freehire@freehire-cli
 ```
+
+The plugin adds [`commands/`](commands/): `/job-search`, `/market-fit`,
+`/tailor-cv`, `/track-applications` and `/triage-inbox` — each drives its skill's
+workflow end to end from one line.
 
 ## Configuration
 
