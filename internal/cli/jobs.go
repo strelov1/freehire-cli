@@ -90,8 +90,14 @@ func newJobCmd() *cobra.Command {
 				return err
 			}
 			out := cmd.OutOrStdout()
-			fmt.Fprintf(out, "%s\n%s (%s) · %s\n%s\n\n%s\n",
-				j.Title, j.Company, j.CompanySlug, j.Location, j.URL, j.Description)
+			fmt.Fprintf(out, "%s\n%s (%s) · %s\n%s\n",
+				j.Title, j.Company, j.CompanySlug, j.Location, j.URL)
+			// Above the description, not after it: a posting runs for screens, and a
+			// reader who should know this before applying would never reach the bottom.
+			if lines := j.Ghost.lines(); len(lines) > 0 {
+				fmt.Fprintf(out, "\n%s\n", strings.Join(lines, "\n"))
+			}
+			fmt.Fprintf(out, "\n%s\n", j.Description)
 			return nil
 		},
 	}

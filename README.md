@@ -53,6 +53,8 @@ freehire note <slug> a quick reminder                          # attach a free-t
 freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
 freehire contribute <url>                                      # hand freehire a job link (see below)
 freehire contributions                                         # boards you've contributed
+freehire ghost report <slug> --applied-on 2026-06-01           # you applied that day and were never answered
+freehire ghost retract <slug>                                  # withdraw that report
 freehire inbox push < mail.json                                # upload mail your own client fetched
 freehire inbox list --unclassified --body                      # mail still awaiting a verdict, with its text
 freehire inbox triage <id> rejection --slug <slug>             # record what a message is + link it
@@ -115,6 +117,34 @@ freehire contribute https://acme.recruitee.com/o/senior-go
 freehire --json contribute https://acme.recruitee.com/o/senior-go | jq '.status, .public_slug'
 freehire contributions
 ```
+
+## A posting that may not be real
+
+`freehire job <slug>` shows a signal above the description when a posting looks like it is
+not being worked — how it behaves, whether the employer's own careers board carries it, and
+what happened to people who applied:
+
+```
+Possibly inactive — 2 of 4 checks fired
+  · Posting behaves as evergreen
+  · Not on the company's own careers board (checked 2026-07-30)
+  Not observed: applications here, reports from people.
+```
+
+The wording is hedged on purpose, and the unfired checks are printed too: they are what says
+how sure the signal is. These are observations about a posting, never a claim about anyone's
+intent.
+
+If you applied and were never answered, say so — human evidence is the only thing that can
+raise the signal past what a posting's shape can show:
+
+```bash
+freehire ghost report senior-go-acme --applied-on 2026-06-01
+freehire ghost retract senior-go-acme
+```
+
+The date is the day *you* applied, and it is required. Reporting needs a verified email
+address, works once per posting, and reaches no moderator — nothing here closes a job.
 
 ## Application mail — bring your own client
 

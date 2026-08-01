@@ -39,7 +39,7 @@ func newRootCmd() *cobra.Command {
 		newSaveCmd(), newUnsaveCmd(), newMyCmd(), newStageCmd(), newNoteCmd(),
 		newCompanyCmd(), newJobsCmd(), newContributeCmd(), newContributionsCmd(), newSubmissionsCmd(),
 		newMarketFitCmd(), newFacetsCmd(), newCVCmd(), newProfileCmd(),
-		newInboxCmd())
+		newInboxCmd(), newGhostCmd())
 	return root
 }
 
@@ -102,8 +102,12 @@ type jobRow struct {
 }
 
 // jobDetail adds the fields shown for a single job.
+//
+// Ghost is a pointer and absent from most postings: the API computes it at read time
+// and omits it entirely when there is nothing to say, which is the common case.
 type jobDetail struct {
 	jobRow
-	URL         string `json:"url"`
-	Description string `json:"description"`
+	URL         string       `json:"url"`
+	Description string       `json:"description"`
+	Ghost       *ghostSignal `json:"ghost"`
 }
