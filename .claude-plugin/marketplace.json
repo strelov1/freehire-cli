@@ -8,7 +8,7 @@
     {
       "name": "freehire",
       "source": "./",
-      "description": "The using-freehire agent skill: the discover → search → apply loop over the freehire CLI (facets, market-fit, application tracking, and CV tailoring), all with machine-readable --json output."
+      "description": "Task-shaped agent skills over the freehire CLI — job search, application tracking, market fit, CV tailoring and mail triage — plus the /job-search, /market-fit, /tailor-cv, /track-applications and /triage-inbox commands. Machine-readable --json throughout."
     }
   ]
 }
