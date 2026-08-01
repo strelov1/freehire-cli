@@ -195,6 +195,33 @@ func (c *Client) Apply(ctx context.Context, slug string) (json.RawMessage, error
 	return env.Data, err
 }
 
+// ReportGhost files the caller's claim that they applied to slug and were never
+// answered (POST /jobs/:slug/ghost-report). It is evidence for the posting's
+// "possibly inactive" signal and reaches no moderator: nothing here closes a job.
+//
+// appliedOn is a plain calendar date (YYYY-MM-DD) because the reporter is stating a
+// day, not an instant — a timezone-bearing timestamp would read as a different day
+// either side of a border. The server refuses a future date, one older than a year,
+// a second live claim on the same posting, an unverified address, and a closed job.
+func (c *Client) ReportGhost(ctx context.Context, slug, appliedOn string) (json.RawMessage, error) {
+	body, err := json.Marshal(map[string]string{"applied_on": appliedOn})
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPost,
+		"/api/v1/jobs/"+url.PathEscape(slug)+"/ghost-report", bytes.NewReader(body))
+	return env.Data, err
+}
+
+// RetractGhostReport withdraws the caller's claim about slug
+// (DELETE /jobs/:slug/ghost-report). The API answers 204 with no body, so there is
+// nothing to return but an error; a claim that is absent or already withdrawn is a 404.
+func (c *Client) RetractGhostReport(ctx context.Context, slug string) error {
+	_, err := c.do(ctx, http.MethodDelete,
+		"/api/v1/jobs/"+url.PathEscape(slug)+"/ghost-report", nil)
+	return err
+}
+
 // TrackParams are the optional fields of a track update. A nil field is omitted
 // from the request body, so the server leaves that column unchanged (partial
 // update); at least one must be set.

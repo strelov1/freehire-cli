@@ -1,6 +1,6 @@
 ---
 name: using-freehire
-description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs the user's own saved job-search profile before asking them what they want, when discovering the job market's filter vocabulary (categories, seniorities, regions, skills), when measuring a CV's skills against live market demand, or when syncing and sorting a job seeker's application mail from their own mail client (himalaya, mbsync, IMAP) into the tracker. Covers auth, reading the saved profile, market vocabulary discovery, keyword + facet search, market-fit coverage, application tracking, and agent-driven mail triage — including draining the matcher's suggestion queue and recording an application from a message that has none — all with machine-readable `--json` output.
+description: Use when searching, filtering, or applying to IT jobs from the terminal via the `freehire` CLI, when an agent needs the user's own saved job-search profile before asking them what they want, when discovering the job market's filter vocabulary (categories, seniorities, regions, skills), when measuring a CV's skills against live market demand, when reading or filing evidence that a posting may not be real (the "possibly inactive" signal and `ghost report`), or when syncing and sorting a job seeker's application mail from their own mail client (himalaya, mbsync, IMAP) into the tracker. Covers auth, reading the saved profile, market vocabulary discovery, keyword + facet search, market-fit coverage, application tracking, and agent-driven mail triage — including draining the matcher's suggestion queue and recording an application from a message that has none — all with machine-readable `--json` output.
 ---
 
 # Using the freehire CLI
@@ -111,6 +111,56 @@ not read that particular page.
 
 Do not use `freehire submissions` for this. That is the moderator review queue for
 hand-authored job cards, a different feature; the `submit` command that fed it is gone.
+
+## A posting that may not be real
+
+`freehire job <slug>` prints a signal block above the description when a posting looks
+like it is not being worked. It is computed fresh on every read, and most postings
+carry nothing at all:
+
+```
+Possibly inactive — 2 of 4 checks fired
+  · Posting behaves as evergreen
+  · Not on the company's own careers board (checked 2026-07-30)
+  Not observed: applications here, reports from people.
+```
+
+In `--json` the same thing is the `ghost` object: `level` (`possible` | `likely`),
+the `criteria` that fired, `criteria_total`, and — only above the anonymity gate —
+`contributors`.
+
+**How to say this to a person.** Report the *facts*, never the intent. The checks
+observe how a posting behaves, whether the employer's own board carries it, and what
+happened to people who applied; none of them can see whether anyone meant to deceive.
+So: "it has been reposted repeatedly and isn't on the company's own careers board" —
+not "this is a fake job". Keep the hedge (`possible`, `likely`) and the scale (2 of 4)
+when you relay it, and mention what was *not* observed: that is what says how sure the
+signal is. It is a reason to check with the company or to lower expectations of a
+reply, never a reason to tell someone a job is fake. Two checks out of four is a
+lead, not a verdict.
+
+**Reporting one.** If the person applied and was never answered, file it — that is the
+only channel that gets human evidence into the signal:
+
+```bash
+freehire ghost report <slug> --applied-on 2026-06-01   # the day THEY applied
+freehire ghost retract <slug>                          # withdraw it
+```
+
+`--applied-on` is required and never guessed: ask the person, or take it from
+`freehire my --filter applied`. The date is the substance of the claim — it decides
+when the silence has matured (roughly three weeks) — so a date they did not state is a
+claim they did not make.
+
+The rest is the server's: it needs a verified email address (403 otherwise), refuses a
+future date or one older than a year (400), a closed posting or a second report on the
+same job (409), and caps how many you can file in a day (429). One report is one of
+four checks; the stronger wording needs a second person, which is also why a report is
+never displayed as coming from one identifiable applicant.
+
+Do not confuse this with `freehire contribute` (handing over a job link) or the
+moderator queue behind `freehire submissions`. Nothing here reaches a moderator and
+nothing here closes a job.
 
 ## Market-fit: how well do a CV's skills cover the market
 
@@ -305,3 +355,5 @@ you are looking at, not the whole mailbox.
 - Skills are canonical slugs (e.g. `go`, `react`, `kubernetes`), lowercase; take
   them from `facets` → `skills`.
 - Commands are idempotent where it matters (`apply`, `save`), so retries are safe.
+- The `ghost` signal is a set of observations, not a verdict — relay it with its hedge
+  and its scale, and never as "this job is fake".
