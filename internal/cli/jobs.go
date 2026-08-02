@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/spf13/cobra"
@@ -104,7 +105,8 @@ func newJobCmd() *cobra.Command {
 }
 
 func newApplyCmd() *cobra.Command {
-	return &cobra.Command{
+	var on string
+	cmd := &cobra.Command{
 		Use:   "apply <slug>",
 		Short: "Mark a job as applied for your account",
 		Args:  cobra.ExactArgs(1),
@@ -113,7 +115,7 @@ func newApplyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := c.Apply(cmd.Context(), args[0])
+			data, err := c.Apply(cmd.Context(), args[0], on)
 			if err != nil {
 				return err
 			}
@@ -121,10 +123,26 @@ func newApplyCmd() *cobra.Command {
 				printJSON(cmd, data)
 				return nil
 			}
+			// Naming the day only when one was asked for keeps the plain apply's output
+			// exactly as it was. The day printed is the one the server stored rather than the
+			// flag we sent, so a server recording something else says so here.
+			if on != "" {
+				stored := appliedDay(data)
+				if stored == "" {
+					stored = on
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "Marked applied on %s: %s\n", stored, args[0])
+				return nil
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Marked applied: %s\n", args[0])
 			return nil
 		},
 	}
+	// For recording an application after the fact — importing a history, or fixing a date
+	// already recorded. The server bounds which dates it believes and owns the message when it
+	// refuses, so nothing is checked here beyond passing it along.
+	cmd.Flags().StringVar(&on, "on", "", "the day the application was sent (YYYY-MM-DD); defaults to today")
+	return cmd
 }
 
 // trunc shortens s to at most n runes, appending an ellipsis when it cuts.
@@ -273,4 +291,17 @@ func (r myJobRow) status() string {
 		return *r.Stage
 	}
 	return r.state()
+}
+
+// appliedDay reads the stored apply day out of an apply response, as a plain date. It answers
+// empty when the response does not carry one, so the caller falls back to the undated wording
+// rather than printing a half-parsed timestamp.
+func appliedDay(data json.RawMessage) string {
+	var out struct {
+		AppliedAt time.Time `json:"applied_at"`
+	}
+	if err := json.Unmarshal(data, &out); err != nil || out.AppliedAt.IsZero() {
+		return ""
+	}
+	return out.AppliedAt.UTC().Format("2006-01-02")
 }
