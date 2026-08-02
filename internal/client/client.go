@@ -190,8 +190,26 @@ func (c *Client) GetJob(ctx context.Context, slug string) (json.RawMessage, erro
 }
 
 // Apply marks a job applied for the authenticated user (POST /jobs/:slug/apply).
-func (c *Client) Apply(ctx context.Context, slug string) (json.RawMessage, error) {
-	env, err := c.do(ctx, http.MethodPost, "/api/v1/jobs/"+url.PathEscape(slug)+"/apply", nil)
+//
+// appliedOn is the day the application was actually sent, as a plain calendar date
+// (YYYY-MM-DD), for recording a history after the fact — the server stores that day rather than
+// today, and it overrides a date already recorded. Empty means today, and sends no body at all:
+// that is the request every existing caller makes, and it must stay byte-for-byte what it was.
+//
+// The date is not validated here. The server refuses one in the future or older than a year,
+// and a second copy of that window in the CLI would answer differently the day the server's
+// moved.
+func (c *Client) Apply(ctx context.Context, slug, appliedOn string) (json.RawMessage, error) {
+	path := "/api/v1/jobs/" + url.PathEscape(slug) + "/apply"
+	if appliedOn == "" {
+		env, err := c.do(ctx, http.MethodPost, path, nil)
+		return env.Data, err
+	}
+	body, err := json.Marshal(map[string]string{"applied_on": appliedOn})
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPost, path, bytes.NewReader(body))
 	return env.Data, err
 }
 

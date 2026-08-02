@@ -46,6 +46,7 @@ freehire market-fit --skills go --country BR                    # one skill prob
 freehire job <slug>                                            # show a job's full content (incl. posting URL + company slug)
 freehire company <slug>                                        # show a company and its open jobs
 freehire apply <slug>                                          # mark a job applied for your account
+freehire apply <slug> --on 2026-07-27                          # ...on the day you actually sent it
 freehire save <slug>                                           # bookmark a job for later
 freehire unsave <slug>                                         # remove a bookmark
 freehire stage <slug> <stage>                                  # set application stage (applied→…→offer, or rejected/withdrawn)

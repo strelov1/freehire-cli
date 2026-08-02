@@ -104,7 +104,8 @@ func newJobCmd() *cobra.Command {
 }
 
 func newApplyCmd() *cobra.Command {
-	return &cobra.Command{
+	var on string
+	cmd := &cobra.Command{
 		Use:   "apply <slug>",
 		Short: "Mark a job as applied for your account",
 		Args:  cobra.ExactArgs(1),
@@ -113,7 +114,7 @@ func newApplyCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			data, err := c.Apply(cmd.Context(), args[0])
+			data, err := c.Apply(cmd.Context(), args[0], on)
 			if err != nil {
 				return err
 			}
@@ -121,10 +122,19 @@ func newApplyCmd() *cobra.Command {
 				printJSON(cmd, data)
 				return nil
 			}
+			if on != "" {
+				fmt.Fprintf(cmd.OutOrStdout(), "Marked applied on %s: %s\n", on, args[0])
+				return nil
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Marked applied: %s\n", args[0])
 			return nil
 		},
 	}
+	// For recording an application after the fact — importing a history, or fixing a date
+	// already recorded. The server bounds which dates it believes and owns the message when it
+	// refuses, so nothing is checked here beyond passing it along.
+	cmd.Flags().StringVar(&on, "on", "", "the day the application was sent (YYYY-MM-DD); defaults to today")
+	return cmd
 }
 
 // trunc shortens s to at most n runes, appending an ellipsis when it cuts.

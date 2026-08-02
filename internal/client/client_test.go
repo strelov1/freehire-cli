@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -147,7 +148,7 @@ func TestClient_GetJobAndApply(t *testing.T) {
 		t.Errorf("job data = %s", job)
 	}
 
-	applied, err := c.Apply(context.Background(), "go-dev")
+	applied, err := c.Apply(context.Background(), "go-dev", "")
 	if err != nil {
 		t.Fatalf("Apply: %v", err)
 	}
@@ -405,5 +406,36 @@ func TestClient_Facets(t *testing.T) {
 	}
 	if !strings.Contains(string(data), `"total":1234`) || !strings.Contains(string(data), `"go":180`) {
 		t.Errorf("facets data = %s", data)
+	}
+}
+
+// The apply date travels as a body, and only when there is one: an undated apply must stay a
+// bodyless POST, because that is what every existing caller sends and what the API treats as
+// "stamp today".
+func TestClient_ApplyOnADate(t *testing.T) {
+	var gotBody string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev/apply", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.Write([]byte(`{"data":{"job_id":1,"applied_at":"2026-07-27T12:00:00Z"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "good", srv.Client())
+
+	if _, err := c.Apply(context.Background(), "go-dev", "2026-07-27"); err != nil {
+		t.Fatalf("Apply dated: %v", err)
+	}
+	if !strings.Contains(gotBody, `"applied_on":"2026-07-27"`) {
+		t.Errorf("body = %q, want it to carry applied_on", gotBody)
+	}
+
+	gotBody = "x"
+	if _, err := c.Apply(context.Background(), "go-dev", ""); err != nil {
+		t.Fatalf("Apply undated: %v", err)
+	}
+	if gotBody != "" {
+		t.Errorf("undated apply sent a body: %q", gotBody)
 	}
 }

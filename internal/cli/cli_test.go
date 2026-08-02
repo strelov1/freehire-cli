@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -476,5 +477,32 @@ func TestTruncCountsRunesNotBytes(t *testing.T) {
 				t.Errorf("trunc(%q, %d) has %d runes, want at most %d", c.in, c.n, n, c.n)
 			}
 		})
+	}
+}
+
+// --on carries the day through to the request body and into what the user is told, so a history
+// import can be read back from the terminal without opening the site.
+func TestApplyOnADate(t *testing.T) {
+	var gotBody string
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev/apply", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotBody = string(b)
+		w.Write([]byte(`{"data":{"job_id":1,"applied_at":"2026-07-27T12:00:00Z"}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "good")
+
+	out, err := run(t, "apply", "go-dev", "--on", "2026-07-27", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("apply --on: %v", err)
+	}
+	if !strings.Contains(gotBody, `"applied_on":"2026-07-27"`) {
+		t.Errorf("request body = %q, want it to carry the day", gotBody)
+	}
+	if !strings.Contains(out, "Marked applied on 2026-07-27: go-dev") {
+		t.Errorf("output = %q, want it to name the day", out)
 	}
 }
