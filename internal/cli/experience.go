@@ -155,6 +155,6 @@ func newExperienceAtomsAddCmd() *cobra.Command {
 	cmd.Flags().String("context", "", "how it was done, in a sentence or two")
 	cmd.Flags().StringArray("metric", nil, `a number as stated, e.g. "20s->1s" (repeatable)`)
 	cmd.Flags().StringArray("skill", nil, "a canonical skill slug, e.g. go, kubernetes (repeatable)")
-	cmd.Flags().String("employment", "", "the employment id this belongs to, from `experience list`")
+	cmd.Flags().String("employment", "", "the employment id this belongs to, from experience list")
 	return cmd
 }
