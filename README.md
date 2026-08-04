@@ -37,6 +37,9 @@ never stored. Omit `--token` to be prompted on stdin.
 
 ```bash
 freehire profile                                               # your saved roles, skills, geography and CV (no contacts)
+freehire experience list                                       # your whole experience bank (employments + achievements)
+freehire experience employments add --company Acme --role SWE  # record a new job or project
+freehire experience atoms add --claim "Cut latency 20s to 1s" --metric "20s->1s" --skill go  # record a new achievement
 freehire facets                                                # list every filter's live values + counts (what to filter by)
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
@@ -63,6 +66,14 @@ freehire inbox list --link suggested                          # matcher proposal
 freehire inbox confirm <id>                                   # accept one of them
 freehire inbox application <id> <slug>                        # mail about an untracked application
 ```
+
+**Experience bank.** `experience list` shows every achievement grouped under the
+employment it belongs to (achievements with no place come back under `unplaced`) —
+copy an id from there to attach a new achievement to it with `atoms add
+--employment <id>`. Anything added this way is recorded with `manual` provenance,
+which is what lets it later be cited as `cv edit --evidence <id>`. Correcting or
+removing an existing entry is not exposed here — do that from the experience page
+on the site.
 
 **Discovering values.** `freehire facets [filters]` lists every filter's live
 values with a vacancy count each (and the `skills` vocabulary), so you pass real
