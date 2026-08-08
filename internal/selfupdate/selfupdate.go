@@ -7,7 +7,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 )
@@ -92,4 +96,73 @@ func versionParts(v string) [3]int {
 		parts[i] = n
 	}
 	return parts
+}
+
+// AssetName is the release asset this OS/arch expects, matching install.sh's
+// naming (freehire_<os>_<arch>).
+func AssetName() string {
+	return fmt.Sprintf("freehire_%s_%s", runtime.GOOS, runtime.GOARCH)
+}
+
+// Apply downloads downloadURL and replaces the running binary with it.
+func Apply(ctx context.Context, downloadURL string) error {
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	return apply(ctx, exe, downloadURL)
+}
+
+// apply is Apply with the executable's path passed in explicitly, so tests
+// can point it at a temp file instead of overwriting the real test binary.
+func apply(ctx context.Context, execPath, downloadURL string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("downloading update: %w", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("downloading update: unexpected status %d", resp.StatusCode)
+	}
+
+	// The temp file lives beside execPath so the final rename is same-filesystem
+	// (a cross-device os.Rename fails outright).
+	dir := filepath.Dir(execPath)
+	tmp, err := os.CreateTemp(dir, ".freehire-update-*")
+	if err != nil {
+		return permissionHint(err, dir)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath) // no-op once the rename below succeeds
+
+	if _, err := io.Copy(tmp, resp.Body); err != nil {
+		tmp.Close()
+		return fmt.Errorf("writing update: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("writing update: %w", err)
+	}
+	if err := os.Chmod(tmpPath, 0o755); err != nil {
+		return err
+	}
+	// Overwriting a running executable's file is safe on the OSes install.sh
+	// supports (linux, darwin): the OS keeps the old inode mapped to the
+	// current process, and new invocations see the new file.
+	if err := os.Rename(tmpPath, execPath); err != nil {
+		return permissionHint(err, execPath)
+	}
+	return nil
+}
+
+// permissionHint wraps a permission error with a suggestion to re-run with
+// sudo, mirroring install.sh's own fallback for an unwritable install dir.
+func permissionHint(err error, path string) error {
+	if os.IsPermission(err) {
+		return fmt.Errorf("%w — re-run with sudo (freehire is installed at %s)", err, path)
+	}
+	return err
 }

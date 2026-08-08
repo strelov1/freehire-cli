@@ -2,8 +2,13 @@ package selfupdate
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +70,72 @@ func TestLatestReleaseSurfacesNon200(t *testing.T) {
 
 	if _, err := LatestRelease(context.Background()); err == nil {
 		t.Error("LatestRelease with a 404 should error")
+	}
+}
+
+func TestAssetNameMatchesRuntime(t *testing.T) {
+	want := fmt.Sprintf("freehire_%s_%s", runtime.GOOS, runtime.GOARCH)
+	if got := AssetName(); got != want {
+		t.Errorf("AssetName() = %q, want %q", got, want)
+	}
+}
+
+func TestApplyReplacesTheBinary(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("new binary contents"))
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	execPath := filepath.Join(dir, "freehire")
+	if err := os.WriteFile(execPath, []byte("old binary contents"), 0o755); err != nil {
+		t.Fatalf("seed exec: %v", err)
+	}
+
+	if err := apply(context.Background(), execPath, srv.URL); err != nil {
+		t.Fatalf("apply: %v", err)
+	}
+
+	got, err := os.ReadFile(execPath)
+	if err != nil {
+		t.Fatalf("read updated binary: %v", err)
+	}
+	if string(got) != "new binary contents" {
+		t.Errorf("binary contents = %q, want %q", got, "new binary contents")
+	}
+	info, err := os.Stat(execPath)
+	if err != nil {
+		t.Fatalf("stat: %v", err)
+	}
+	if info.Mode().Perm()&0o111 == 0 {
+		t.Errorf("updated binary is not executable: mode %v", info.Mode())
+	}
+}
+
+func TestApplySurfacesPermissionErrorWithHint(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root: permission checks never fail")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("new binary contents"))
+	}))
+	t.Cleanup(srv.Close)
+
+	dir := t.TempDir()
+	execPath := filepath.Join(dir, "freehire")
+	if err := os.WriteFile(execPath, []byte("old binary contents"), 0o755); err != nil {
+		t.Fatalf("seed exec: %v", err)
+	}
+	if err := os.Chmod(dir, 0o500); err != nil { // read+execute, no write
+		t.Fatalf("chmod dir: %v", err)
+	}
+	t.Cleanup(func() { os.Chmod(dir, 0o700) }) // let t.TempDir's own cleanup remove it
+
+	err := apply(context.Background(), execPath, srv.URL)
+	if err == nil {
+		t.Fatal("apply into a read-only dir should error")
+	}
+	if !strings.Contains(err.Error(), "sudo") {
+		t.Errorf("error = %q, want a sudo hint", err)
 	}
 }
