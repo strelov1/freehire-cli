@@ -31,7 +31,7 @@ func newUpdateCmd() *cobra.Command {
 
 			rel, err := latestRelease(cmd.Context())
 			if err != nil {
-				return fmt.Errorf("checking latest release: %w", err)
+				return err
 			}
 			available := selfupdate.IsNewer(current, rel.Tag)
 			updated := false
