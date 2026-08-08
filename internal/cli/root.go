@@ -33,13 +33,14 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	root.Version = Version
 	root.PersistentFlags().Bool("json", false, "output raw JSON from the API")
 	root.PersistentFlags().String("api-url", "", "override the API base URL")
 	root.AddCommand(newAuthCmd(), newSearchCmd(), newJobCmd(), newApplyCmd(),
 		newSaveCmd(), newUnsaveCmd(), newMyCmd(), newStageCmd(), newNoteCmd(),
 		newCompanyCmd(), newJobsCmd(), newContributeCmd(), newContributionsCmd(), newSubmissionsCmd(),
 		newMarketFitCmd(), newFacetsCmd(), newCVCmd(), newProfileCmd(),
-		newInboxCmd(), newGhostCmd(), newExperienceCmd())
+		newInboxCmd(), newGhostCmd(), newExperienceCmd(), newUpdateCmd())
 	return root
 }
 
