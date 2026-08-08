@@ -33,6 +33,7 @@ func newRootCmd() *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
+	root.Version = Version
 	root.PersistentFlags().Bool("json", false, "output raw JSON from the API")
 	root.PersistentFlags().String("api-url", "", "override the API base URL")
 	root.AddCommand(newAuthCmd(), newSearchCmd(), newJobCmd(), newApplyCmd(),
