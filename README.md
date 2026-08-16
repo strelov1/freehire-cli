@@ -40,6 +40,8 @@ freehire profile                                               # your saved role
 freehire experience list                                       # your whole experience bank (employments + achievements)
 freehire experience employments add --company Acme --role SWE  # record a new job or project
 freehire experience atoms add --claim "Cut latency 20s to 1s" --metric "20s->1s" --skill go  # record a new achievement
+freehire experience atoms update <id> --claim "Cut p99 20s to 900ms"  # fix one field; the rest is kept
+freehire experience employments update <id> --end "Dec 2025"   # same, for a place
 freehire cv tailor <slug>                                      # start (or reopen) tailoring for a vacancy — prints the CV id
 freehire cv list                                               # the tailored CVs you already have, with their vacancies
 freehire cv context <cv-id>                                    # the fit analysis to reframe toward (missing_have vs missing_gap)
@@ -76,9 +78,19 @@ freehire inbox application <id> <slug>                        # mail about an un
 employment it belongs to (achievements with no place come back under `unplaced`) —
 copy an id from there to attach a new achievement to it with `atoms add
 --employment <id>`. Anything added this way is recorded with `manual` provenance,
-which is what lets it later be cited as `cv edit --evidence <id>`. Correcting or
-removing an existing entry is not exposed here — do that from the experience page
-on the site.
+which is what lets it later be cited as `cv edit --evidence <id>`.
+
+`atoms update <id>` and `employments update <id>` correct an entry. Only the flags
+you pass change — the API replaces the whole row, so the command reads what is
+banked and sends it back with your changes applied, which is what keeps a typo fix
+from deleting the metrics. `--metric` and `--skill` replace the whole list when
+given.
+
+A correction made with a key does **not** restamp provenance: an achievement the
+agent inferred stays `agent_inferred`, and so stays uncitable on a CV. Only your
+own edit on the site turns it into something you assert. **Deleting is on the site
+only** — the bank has no undo, and removing an employment takes every achievement
+under it with it.
 
 **Tailoring a CV.** `cv tailor <job-slug>` copies your base CV into a
 vacancy-bound one and prints the CV id every other `cv` command takes; it is
