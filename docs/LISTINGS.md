@@ -205,12 +205,12 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 
 | Directory | Mechanic | Submitted | Listing |
 |---|---|---|---|
-| official MCP Registry | push | blocked | needs npm 0.4.2 published; DNS auth already done |
+| official MCP Registry | push | 2026-08-16 | `me.freehire/freehire` 0.4.2 — [live](https://registry.modelcontextprotocol.io/v0/servers?search=me.freehire/freehire) |
 | awesome-mcp-servers | push | 2026-08-16 | [PR #12289](https://github.com/punkpeye/awesome-mcp-servers/pull/12289) — open |
 | mcp.so | form | — | — |
 | PulseMCP | form | — | — |
 | Glama | crawl | — | — |
-| Smithery | push (`.mcpb`) | bundle ready | needs a Smithery login: `npx @smithery/cli mcp publish ./freehire-<v>.mcpb -n strelov1/freehire` |
+| Smithery | push (`.mcpb`) | 2026-08-16 | [strelov1/freehire](https://smithery.ai/servers/strelov1/freehire) — published, **card still blank** (see below) |
 
 ### Claude Code directories
 
@@ -220,6 +220,19 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | ccplugins/awesome-claude-code-plugins | push | 2026-08-16 | [PR #352](https://github.com/ccplugins/awesome-claude-code-plugins/pull/352) — open |
 | hesreallyhim/awesome-claude-code | form | — | — |
 | claudemarketplaces.com | crawl | — | — |
+
+**Smithery, unfinished.** The bundle is accepted and installable, but the catalog card is
+empty: description `""`, no icon, no homepage, `tools: 0`, and the name shown is `freehire`
+rather than the manifest's `display_name`. Smithery does **not** read listing metadata from
+the bundle manifest — even though the manifest inside the published `.mcpb` carries all of
+it — and the CLI has no command to set it. Fill it in at
+[the server's Smithery page](https://smithery.ai/servers/strelov1/freehire) using the copy
+above; until then this listing works but sells nothing.
+
+Also note Smithery validates the manifest's `tools` array more strictly than the MCPB spec
+does: the spec allows `{name, description}`, Smithery rejects it with one
+"expected object, received undefined" per tool. The manifest therefore sets
+`tools_generated: true` and lets the server report its own tools.
 
 `hesreallyhim/awesome-claude-code` takes **no pull requests** — recommendations go through
 the web issue form only, submitting via `gh` is explicitly impossible, and the maintainer
