@@ -213,10 +213,10 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | Directory | Mechanic | Submitted | Listing |
 |---|---|---|---|
 | official MCP Registry | push | 2026-08-16 | `me.freehire/freehire` 0.4.2 — [live](https://registry.modelcontextprotocol.io/v0/servers?search=me.freehire/freehire) |
-| awesome-mcp-servers | push | 2026-08-16 | [PR #12289](https://github.com/punkpeye/awesome-mcp-servers/pull/12289) — open |
+| awesome-mcp-servers | push | 2026-08-16 | [PR #12289](https://github.com/punkpeye/awesome-mcp-servers/pull/12289) — open; Glama badge added after the bot gated it |
 | mcp.so | form | — | — |
 | PulseMCP | form | — | — |
-| Glama | form | — | needs submitting at https://glama.ai/mcp/servers — **blocks awesome-mcp-servers** |
+| Glama | crawl | indexed | https://glama.ai/mcp/servers/strelov1/freehire-mcp — score badge live |
 | Smithery | push (`.mcpb`) | 2026-08-16 | [strelov1/freehire](https://smithery.ai/servers/strelov1/freehire) — published, **card still blank** (see below) |
 
 ### Claude Code directories
@@ -225,18 +225,37 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 |---|---|---|---|
 | Anthropic plugin directory | form | — | — |
 | ccplugins/awesome-claude-code-plugins | push | 2026-08-16 | [PR #352](https://github.com/ccplugins/awesome-claude-code-plugins/pull/352) — open |
-| hesreallyhim/awesome-claude-code | form | — | — |
+| hesreallyhim/awesome-claude-code (52k★) | form | — | web issue form only |
 | claudemarketplaces.com | crawl | — | — |
 
-**Glama is not a crawl directory, and it gates another one.** Submitting is a form at
-[glama.ai/mcp/servers](https://glama.ai/mcp/servers), and the listing has to pass Glama's
-checks — it starts the server from a Dockerfile and speaks MCP at it. `awesome-mcp-servers`
-gates *its* listing on that check passing, and asks for a Glama score badge in the entry, so
-[PR #12289](https://github.com/punkpeye/awesome-mcp-servers/pull/12289) is blocked until
-Glama is done. Order: Glama first, then update that PR with the badge.
+### Skill directories
 
-The Dockerfile exists (`freehire-mcp`, merged); introspection works without a token, which
-is what lets a directory run the check without being handed a credential.
+The plugin ships five skills, which makes it eligible for the skills lists as well as the
+plugin ones — a separate ecosystem that grew after the SKILL.md format was opened up. These
+lists take a **link**; the skills do not have to be copied into their repos.
+
+| Directory | Stars | Mechanic | Submitted | Listing |
+|---|---|---|---|---|
+| ComposioHQ/awesome-claude-skills | 72.6k | push | 2026-08-16 | [PR #1650](https://github.com/ComposioHQ/awesome-claude-skills/pull/1650) — open |
+| BehiSecc/awesome-claude-skills | 10.0k | push | 2026-08-16 | [PR #580](https://github.com/BehiSecc/awesome-claude-skills/pull/580) — open |
+| jqueryscript/awesome-claude-code | 501 | push | 2026-08-16 | [PR #599](https://github.com/jqueryscript/awesome-claude-code/pull/599) — open |
+| [skills.sh](https://skills.sh) | — | form | — | Vercel's directory; spans 19 agents, not just Claude |
+| [cultofclaude.com](https://cultofclaude.com) | — | form | — | 4,248 skills indexed |
+| [agentskill.sh](https://agentskill.sh) | — | form | — | — |
+| travisvn/awesome-claude-skills | 14.7k | push | — | **stale** — no commits since 2026-04-28 |
+| rohitg00/awesome-claude-code-toolkit | 2.5k | push | — | last pushed 2026-05-12 |
+
+Checked and rejected: `acacess/awesome-jobs` (76★, untouched since 2022).
+
+**Glama gates awesome-mcp-servers.** Glama does index from GitHub on its own — it found
+freehire-mcp without a submission — but `awesome-mcp-servers` will not list a server until
+Glama's checks pass, and asks for a Glama score badge in the entry. Those checks start the
+server from a **Dockerfile** and speak MCP at it, which is why one now lives in
+`freehire-mcp`. Introspection answers without a token, so a directory can run the check
+without being handed a credential.
+
+Order, if this repeats for another server: Dockerfile → let Glama index → add the badge to
+the awesome-mcp-servers entry.
 
 **Smithery, unfinished.** The bundle is accepted and installable, but the catalog card is
 empty: description `""`, no icon, no homepage, `tools: 0`, and the name shown is `freehire`
