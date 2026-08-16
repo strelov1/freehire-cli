@@ -204,8 +204,8 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 
 | Directory | Mechanic | Submitted | Listing |
 |---|---|---|---|
-| official MCP Registry | push | — | — |
-| awesome-mcp-servers | push | — | — |
+| official MCP Registry | push | blocked | needs npm 0.4.2 published; DNS auth already done |
+| awesome-mcp-servers | push | 2026-08-16 | [PR #12289](https://github.com/punkpeye/awesome-mcp-servers/pull/12289) — open |
 | mcp.so | form | — | — |
 | PulseMCP | form | — | — |
 | Glama | crawl | — | — |
@@ -216,7 +216,7 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | Directory | Mechanic | Submitted | Listing |
 |---|---|---|---|
 | Anthropic plugin directory | form | — | — |
-| ccplugins/awesome-claude-code-plugins | push | — | — |
+| ccplugins/awesome-claude-code-plugins | push | 2026-08-16 | [PR #352](https://github.com/ccplugins/awesome-claude-code-plugins/pull/352) — open |
 | hesreallyhim/awesome-claude-code | form | — | — |
 | claudemarketplaces.com | crawl | — | — |
 
@@ -246,7 +246,7 @@ crawl-based directories read.
 | `freehire.me/llms.txt` | names the MCP server |
 | `freehire.me/mcp` | 308 → `/cli#mcp` |
 | `strelov1/freehire-mcp` README | opens with the scale figures and links freehire.me |
-| GitHub topics on `freehire-mcp` / `freehire-cli` | **not set** — the main repo has 20, these have none |
+| GitHub topics on `freehire-mcp` / `freehire-cli` | set 2026-08-16 (14 and 15 topics) — crawl-based directories read these |
 
 ### Package managers
 
