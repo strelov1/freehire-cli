@@ -217,6 +217,10 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | mcp.so | form | — | — |
 | PulseMCP | form | — | — |
 | Glama | crawl | indexed | https://glama.ai/mcp/servers/strelov1/freehire-mcp — score badge live |
+| Docker MCP Registry | push | 2026-08-16 | [PR #4704](https://github.com/docker/mcp-registry/pull/4704) — local containerized server; needed the Dockerfile |
+| appcypher/awesome-mcp-servers (5.7k★) | push | branch pushed | PR not opened yet — see the rate-limit note below |
+| wong2/awesome-mcp-servers (4.3k★) | push | branch pushed | same; issues are also disabled on that repo |
+| modelcontextprotocol/servers (89.6k★) | — | n/a | no longer lists community servers — that role moved to the official registry, where we already are |
 | Smithery | push (`.mcpb`) | 2026-08-16 | [strelov1/freehire](https://smithery.ai/servers/strelov1/freehire) — published, **card still blank** (see below) |
 
 ### Claude Code directories
@@ -267,6 +271,16 @@ lists take a **link**; the skills do not have to be copied into their repos.
 | rohitg00/awesome-claude-code-toolkit | 2.5k | push | — | last pushed 2026-05-12 |
 
 Checked and rejected: `acacess/awesome-jobs` (76★, untouched since 2022).
+
+**GitHub rate-limits bulk submissions.** After enough pull requests in one day, GitHub stops
+accepting new ones with `does not have the correct permissions to execute CreatePullRequest`
+— a secondary rate limit on content creation, not a repository setting, and not visible in
+`gh api rate_limit` (core showed 4980/5000 while PR creation was blocked). It clears on its
+own within about an hour.
+
+The branches for `appcypher` and `wong2` are already pushed to the forks, so each PR is one
+command once it lifts. If a listing sweep like this repeats, spread the submissions across
+days rather than doing fifteen in an afternoon.
 
 **Glama gates awesome-mcp-servers.** Glama does index from GitHub on its own — it found
 freehire-mcp without a submission — but `awesome-mcp-servers` will not list a server until
