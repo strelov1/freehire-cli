@@ -5,12 +5,20 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/url"
 )
 
-// Experience-bank endpoints. GET reads the caller's whole bank (cookie or full-scope key,
-// same as everywhere else this CLI authenticates); the two POSTs create rather than
-// correct — PUT/DELETE on an existing entry are cookie-only on the server and stay out of
-// reach of a key, on purpose.
+// Experience-bank endpoints. GET reads the caller's whole bank, the POSTs create, and the
+// PUTs correct — all reachable with a full-scope key, same as everywhere else this CLI
+// authenticates.
+//
+// Removing is not here, and that is the server's rule rather than an omission: DELETE on
+// either kind, and the atom merge, stay cookie-only. The bank has no undo, and deleting an
+// employment cascades to every achievement under it.
+//
+// A keyed correction cannot move a claim's provenance — the server keeps whatever the row
+// already carried, so an agent cannot promote its own inference into something citable on
+// a CV. Only the candidate's own browser edit stamps `manual`.
 
 // ListExperience returns the caller's whole bank, grouped by employment
 // (GET /me/experience).
@@ -30,6 +38,10 @@ type CreateEmploymentParams struct {
 	Current  bool     `json:"current,omitempty"`
 	Summary  string   `json:"summary,omitempty"`
 	Stack    []string `json:"stack,omitempty"`
+	// Link is not settable by any command; it rides along on an update so that correcting
+	// a company name does not silently drop a project's URL, since the server replaces the
+	// whole row.
+	Link string `json:"link,omitempty"`
 }
 
 // CreateEmployment records a new employment under the caller (POST /me/experience/employments).
@@ -63,5 +75,30 @@ func (c *Client) CreateAtom(ctx context.Context, p CreateAtomParams) (json.RawMe
 		return nil, err
 	}
 	env, err := c.do(ctx, http.MethodPost, "/api/v1/me/experience/atoms", bytes.NewReader(body))
+	return env.Data, err
+}
+
+// UpdateAtom replaces an owned achievement (PUT /me/experience/atoms/:id).
+//
+// It is a REPLACE, not a patch: every field the caller omits is written as empty. Callers
+// must send the whole atom — see the update commands, which read the bank first and change
+// only what was named.
+func (c *Client) UpdateAtom(ctx context.Context, id string, p CreateAtomParams) (json.RawMessage, error) {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPut, "/api/v1/me/experience/atoms/"+url.PathEscape(id), bytes.NewReader(body))
+	return env.Data, err
+}
+
+// UpdateEmployment replaces an owned employment (PUT /me/experience/employments/:id), with
+// the same whole-row replace semantics as UpdateAtom.
+func (c *Client) UpdateEmployment(ctx context.Context, id string, p CreateEmploymentParams) (json.RawMessage, error) {
+	body, err := json.Marshal(p)
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPut, "/api/v1/me/experience/employments/"+url.PathEscape(id), bytes.NewReader(body))
 	return env.Data, err
 }
