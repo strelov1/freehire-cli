@@ -1,7 +1,7 @@
 {
   "name": "freehire",
   "version": "0.2.0",
-  "description": "Search, filter, measure your skills against, and apply to IT jobs from the terminal via the freehire CLI. Ships task-shaped agent skills and the /job-search, /market-fit, /tailor-cv, /track-applications and /triage-inbox commands.",
+  "description": "Search, filter, measure your skills against, and apply to IT jobs from the terminal via the freehire.me CLI — 3.3M+ roles crawled straight from 294K company career boards. Ships task-shaped agent skills and the /job-search, /market-fit, /tailor-cv, /track-applications and /triage-inbox commands.",
   "author": {
     "name": "strelov1",
     "url": "https://github.com/strelov1"
