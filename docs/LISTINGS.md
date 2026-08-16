@@ -216,7 +216,7 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | awesome-mcp-servers | push | 2026-08-16 | [PR #12289](https://github.com/punkpeye/awesome-mcp-servers/pull/12289) — open |
 | mcp.so | form | — | — |
 | PulseMCP | form | — | — |
-| Glama | crawl | — | — |
+| Glama | form | — | needs submitting at https://glama.ai/mcp/servers — **blocks awesome-mcp-servers** |
 | Smithery | push (`.mcpb`) | 2026-08-16 | [strelov1/freehire](https://smithery.ai/servers/strelov1/freehire) — published, **card still blank** (see below) |
 
 ### Claude Code directories
@@ -227,6 +227,16 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | ccplugins/awesome-claude-code-plugins | push | 2026-08-16 | [PR #352](https://github.com/ccplugins/awesome-claude-code-plugins/pull/352) — open |
 | hesreallyhim/awesome-claude-code | form | — | — |
 | claudemarketplaces.com | crawl | — | — |
+
+**Glama is not a crawl directory, and it gates another one.** Submitting is a form at
+[glama.ai/mcp/servers](https://glama.ai/mcp/servers), and the listing has to pass Glama's
+checks — it starts the server from a Dockerfile and speaks MCP at it. `awesome-mcp-servers`
+gates *its* listing on that check passing, and asks for a Glama score badge in the entry, so
+[PR #12289](https://github.com/punkpeye/awesome-mcp-servers/pull/12289) is blocked until
+Glama is done. Order: Glama first, then update that PR with the badge.
+
+The Dockerfile exists (`freehire-mcp`, merged); introspection works without a token, which
+is what lets a directory run the check without being handed a credential.
 
 **Smithery, unfinished.** The bundle is accepted and installable, but the catalog card is
 empty: description `""`, no icon, no homepage, `tools: 0`, and the name shown is `freehire`
