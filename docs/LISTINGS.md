@@ -319,6 +319,36 @@ crawl-based directories read.
 | `strelov1/freehire-mcp` README | opens with the scale figures and links freehire.me |
 | GitHub topics on `freehire-mcp` / `freehire-cli` | set 2026-08-16 (14 and 15 topics) — crawl-based directories read these |
 
+### Job-search projects
+
+Not directories — open-source tools that need a source of postings. The pitch is different:
+they do not want a listing, they want an integration, so lead with the API and offer to write
+the adapter rather than asking them to.
+
+| Project | Stars | State |
+|---|---|---|
+| MadsLorentzen/ai-job-search | 31.9k | **accepted** — ships `.agents/skills/freehire-search/` with a CLI and tests |
+| emredurukn/awesome-job-boards | 1.0k | **merged** — [PR #179](https://github.com/emredurukn/awesome-job-boards/pull/179) |
+| tramcar/awesome-job-boards | 1.8k | [PR #284](https://github.com/tramcar/awesome-job-boards/pull/284) open since 2026-06-17, no reaction |
+| Panniantong/Agent-Reach | 72.3k | [issue #637](https://github.com/Panniantong/Agent-Reach/issues/637) — proposed a zero-config jobs channel |
+| DaKheera47/job-ops | 3.9k | [issue #708](https://github.com/DaKheera47/job-ops/issues/708) |
+| speedyapply/JobSpy | 4.1k | [issue #381](https://github.com/speedyapply/JobSpy/issues/381) |
+| santifer/career-ops | 64k | **closed — do not resubmit.** See below |
+
+**career-ops is closed on purpose, and the reason is strategic.** The first attempt (#1082,
+PR #1197) was rejected on policy: career-ops does not wire user data out to third parties,
+from anyone. The re-scoped read-only version (#2350) was verified live by the maintainer —
+he confirmed the API answers signed-out and the links point at the real ATS — and closed
+anyway, because the offers-aggregation layer is reserved as first-party in their roadmap.
+Nothing about freehire fixes that. Do not spend another round there.
+
+The lesson generalizes: **a project that plans to build its own aggregator will not adopt
+one.** Check the roadmap before writing the pitch.
+
+Checked and rejected as a poor fit: `Paramchoudhary/ResumeSkills` (1.7k★) — its skills are
+pure prompt files with no CLI or API calls anywhere, so a skill backed by a live API does
+not belong there.
+
 ### Package managers
 
 | Target | Mechanic | Submitted | Listing |
