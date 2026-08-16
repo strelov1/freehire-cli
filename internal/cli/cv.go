@@ -18,13 +18,138 @@ func newCVCmd() *cobra.Command {
 	cv := &cobra.Command{
 		Use:   "cv",
 		Short: "Tailor a CV to a vacancy (beta)",
-		Long: "Read and edit a tailored CV during a tailoring session. `context` shows the fit " +
-			"analysis to reframe toward, `get` dumps the CV document, `edit` changes it by path, " +
-			"and `render` downloads the PDF. Addressed by CV id. Every edit is recorded and can " +
-			"be undone on its own from the tailoring workspace.",
+		Long: "Run a whole tailoring cycle. `tailor` starts one for a vacancy and hands back the " +
+			"CV id every other command here takes; `list` shows the tailored CVs you already " +
+			"have. Then `context` shows the fit analysis to reframe toward, `get` dumps the CV " +
+			"document, `edit` changes it by path, and `render` downloads the PDF. Every edit is " +
+			"recorded and can be undone on its own from the tailoring workspace.",
 	}
-	cv.AddCommand(newCVContextCmd(), newCVGetCmd(), newCVEditCmd(), newCVRenderCmd())
+	cv.AddCommand(newCVListCmd(), newCVTailorCmd(), newCVContextCmd(), newCVGetCmd(),
+		newCVEditCmd(), newCVRenderCmd())
 	return cv
+}
+
+// cvListItem is the subset of a tailored CV shown in a `cv list` row. The id leads because
+// it is what the reader came for — every other command in the group is addressed by one.
+type cvListItem struct {
+	ID         string `json:"id"`
+	Title      string `json:"title"`
+	JobSlug    string `json:"job_slug"`
+	JobTitle   string `json:"job_title"`
+	JobCompany string `json:"job_company"`
+	UpdatedAt  string `json:"updated_at"`
+}
+
+func newCVListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List your tailored CVs",
+		Long: "Print the CVs you have tailored to a vacancy, newest edit first, with the CV id " +
+			"and the vacancy each was written for. The id is what `context`, `get`, `edit` and " +
+			"`render` take — copy it from here rather than constructing one.",
+		Args: cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			c, _, err := authedClient(cmd)
+			if err != nil {
+				return err
+			}
+			data, err := c.ListCVs(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if wantJSON(cmd) {
+				printJSON(cmd, data)
+				return nil
+			}
+			var items []cvListItem
+			if err := json.Unmarshal(data, &items); err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if len(items) == 0 {
+				fmt.Fprintln(out, "No tailored CVs yet.")
+				fmt.Fprintln(out, "Start one with: freehire cv tailor <job-slug>")
+				return nil
+			}
+			for _, it := range items {
+				fmt.Fprintf(out, "%s  %s\n", it.ID, cvListVacancy(it))
+			}
+			return nil
+		},
+	}
+}
+
+// cvListVacancy renders the vacancy a tailored CV belongs to. It falls back through what is
+// actually populated: a copy made before the job columns were denormalised carries only the
+// slug, and one whose vacancy has since been pruned carries only its own title. Printing an
+// empty column for either would make the row look broken when it is merely older.
+func cvListVacancy(it cvListItem) string {
+	if it.JobTitle != "" && it.JobCompany != "" {
+		return fmt.Sprintf("%s at %s (%s)", it.JobTitle, it.JobCompany, it.JobSlug)
+	}
+	for _, v := range []string{it.JobTitle, it.JobSlug, it.Title} {
+		if v != "" {
+			return v
+		}
+	}
+	return "(untitled)"
+}
+
+// cvTailorResult is the bootstrap payload: the ids and the conversation the workspace resumes.
+type cvTailorResult struct {
+	TailorCVID string `json:"tailor_cv_id"`
+	BaseCVID   string `json:"base_cv_id"`
+	SessionID  string `json:"session_id"`
+	// ColdStartRunning is true only on the call that CREATED the copy, which is how the
+	// human output can say "started" or "reopened" instead of guessing.
+	ColdStartRunning bool `json:"cold_start_running"`
+}
+
+func newCVTailorCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "tailor <job-slug>",
+		Short: "Start tailoring a CV to a vacancy",
+		Long: "Create a copy of your base CV bound to a vacancy, and print the CV id the rest of " +
+			"this group takes. Idempotent per vacancy: running it again for the same slug " +
+			"reopens the copy that already exists rather than making a second one.\n\n" +
+			"It spends AI credits the first time it creates the copy (a 402 means the balance " +
+			"will not cover it) and needs a résumé to seed a base CV from (409 when there is " +
+			"none). It does not call a model — the reframing is the agent's work, done through " +
+			"`cv context` and `cv edit`.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			slug := strings.TrimSpace(args[0])
+			if slug == "" {
+				return fmt.Errorf("a job slug is required, e.g. `freehire cv tailor go-developer-acme-1a2b3c4d`")
+			}
+			c, _, err := authedClient(cmd)
+			if err != nil {
+				return err
+			}
+			data, err := c.TailorCV(cmd.Context(), slug)
+			if err != nil {
+				return err
+			}
+			if wantJSON(cmd) {
+				printJSON(cmd, data)
+				return nil
+			}
+			var r cvTailorResult
+			if err := json.Unmarshal(data, &r); err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			verb := "Reopened"
+			if r.ColdStartRunning {
+				verb = "Started"
+			}
+			fmt.Fprintf(out, "%s tailoring for %s\n", verb, slug)
+			fmt.Fprintf(out, "  tailored CV: %s\n", r.TailorCVID)
+			fmt.Fprintf(out, "  base CV:     %s\n", r.BaseCVID)
+			fmt.Fprintf(out, "\nNext: freehire cv context %s\n", r.TailorCVID)
+			return nil
+		},
+	}
 }
 
 func newCVContextCmd() *cobra.Command {
@@ -177,7 +302,7 @@ func newCVRenderCmd() *cobra.Command {
 func cvID(arg string) (string, error) {
 	id := strings.TrimSpace(arg)
 	if id == "" {
-		return "", fmt.Errorf("a cv id is required — copy it from `freehire cv` or the tailoring workspace URL")
+		return "", fmt.Errorf("a cv id is required — copy it from `freehire cv list`, or start one with `freehire cv tailor <job-slug>`")
 	}
 	return id, nil
 }

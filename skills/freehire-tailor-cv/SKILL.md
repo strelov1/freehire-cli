@@ -9,19 +9,29 @@ Needs a key: `freehire auth login --token fhk_…` (or `FREEHIRE_TOKEN`). These
 commands act as the user whose key you signed in with, the same as every other
 command.
 
-After a fit analysis, a tailored CV can be reframed toward a specific vacancy. The
-tailoring workspace on the site creates the tailored copy and shows its **CV id** —
-an opaque identifier, visible in the workspace URL (`/tailor/<job>?cv=<id>`):
+A tailored CV is a copy of the candidate's base CV bound to one vacancy. Start one —
+or reopen the one that exists — with the vacancy's slug, and the whole cycle runs
+from here:
 
 ```bash
+freehire cv tailor <job-slug>         # create/reopen the copy; prints the CV id
+freehire cv list                      # the tailored CVs that already exist
 freehire cv context <id>              # the fit analysis to reframe toward (JSON)
 freehire cv get <id>                  # the current CV document (JSON)
 freehire cv edit <id> --set 'path=value'  # one edit; --ops '<json>' or stdin for several
 freehire cv render <id> --out cv.pdf  # download the ATS PDF to inspect
 ```
 
-The id is opaque: copy it, do not construct or guess one. An id that is not the
-caller's own comes back as "not found" — the same answer as one that never existed.
+`cv tailor` is idempotent per vacancy: running it twice for the same slug returns the
+same copy, so it is safe to start with when you do not know whether one exists. It
+spends an AI credit the first time it creates the copy (402 when the balance will not
+cover it) and 409s when the candidate has no résumé on the site to seed a base CV
+from — tell them to upload one; you cannot do it for them.
+
+The id is opaque: read it from `cv tailor` or `cv list`, do not construct or guess one.
+An id that is not the caller's own comes back as "not found" — the same answer as one
+that never existed. The workspace URL on the site (`/tailor/<job>?cv=<id>`) carries the
+same id if the candidate would rather paste it.
 
 ## Editing by path
 

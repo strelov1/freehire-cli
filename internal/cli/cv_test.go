@@ -13,6 +13,20 @@ import (
 func cvFakeAPI(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/me/cvs", func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"data":[
+			{"id":"3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76","title":"Tailored — Go Dev","job_slug":"go-dev-acme","job_title":"Go Developer","job_company":"Acme"},
+			{"id":"aa11","title":"Tailored — SRE","job_slug":"sre-globex","job_title":"SRE","job_company":"Globex"}
+		]}`))
+	})
+	mux.HandleFunc("/api/v1/me/cvs/tailor", func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		if !strings.Contains(string(b), `"job_slug":"go-dev-acme"`) {
+			t.Errorf("tailor body did not carry the slug: %s", b)
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"data":{"tailor_cv_id":"3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76","base_cv_id":"b0","session_id":"s1","cold_start_running":true}}`))
+	})
 	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76/tailor-context", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"data":{"verdict":"Good Fit","missing_gap":[{"text":"Kubernetes"}]}}`))
 	})
@@ -50,6 +64,63 @@ func cvEnv(t *testing.T, srv *httptest.Server) {
 
 // testCV is an id the API would hand out: opaque, and nothing the CLI parses.
 const testCV = "3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76"
+
+// `cv list` is where a CV id comes from. Everything else in the group is addressed by one,
+// so the id has to be in the human output, not only under --json.
+func TestCVListShowsTheIDAndTheVacancy(t *testing.T) {
+	srv := cvFakeAPI(t)
+	cvEnv(t, srv)
+	out, err := run(t, "cv", "list")
+	if err != nil {
+		t.Fatalf("cv list: %v", err)
+	}
+	for _, want := range []string{testCV, "Go Developer", "Acme", "sre-globex"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("list output %q is missing %q", out, want)
+		}
+	}
+}
+
+func TestCVListEmpty(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"data":[]}`))
+	}))
+	t.Cleanup(srv.Close)
+	cvEnv(t, srv)
+	out, err := run(t, "cv", "list")
+	if err != nil {
+		t.Fatalf("cv list: %v", err)
+	}
+	if !strings.Contains(out, "cv tailor") {
+		t.Errorf("an empty list should point at the command that fills it, got %q", out)
+	}
+}
+
+// `cv tailor` closes the loop: it takes a vacancy slug and hands back the id the rest of the
+// group needs, so the cycle no longer starts in a browser.
+func TestCVTailorPrintsTheNewID(t *testing.T) {
+	srv := cvFakeAPI(t)
+	cvEnv(t, srv)
+	out, err := run(t, "cv", "tailor", "go-dev-acme")
+	if err != nil {
+		t.Fatalf("cv tailor: %v", err)
+	}
+	if !strings.Contains(out, testCV) {
+		t.Errorf("tailor output %q does not carry the tailored CV id", out)
+	}
+}
+
+func TestCVTailorJSONPassesThrough(t *testing.T) {
+	srv := cvFakeAPI(t)
+	cvEnv(t, srv)
+	out, err := run(t, "cv", "tailor", "go-dev-acme", "--json")
+	if err != nil {
+		t.Fatalf("cv tailor --json: %v", err)
+	}
+	if !strings.Contains(out, `"base_cv_id"`) {
+		t.Errorf("--json should print the whole payload, got %q", out)
+	}
+}
 
 func TestCVContext(t *testing.T) {
 	srv := cvFakeAPI(t)
