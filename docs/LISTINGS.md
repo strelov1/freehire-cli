@@ -187,6 +187,7 @@ career, ATS, AI job search
 | `https://freehire.me/favicon.svg` | square vector mark — first choice wherever a directory takes a URL |
 | `https://freehire.me/pwa-512x512.png` | square 512×512 PNG — for forms that reject SVG |
 | `https://freehire.me/og.png` | rectangular OG card — social previews only, never as an icon |
+| `freehire-mcp/assets/icon.png` | the same square mark, vendored for the MCPB bundle |
 | screenshots | none prepared; needed by the product directories in [Phase 3](#the-product-dev--ai-tool-directories) |
 
 The square assets are generated from the brand mark by `web/scripts/gen-pwa-icons.mjs` in
@@ -209,7 +210,7 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | mcp.so | form | — | — |
 | PulseMCP | form | — | — |
 | Glama | crawl | — | — |
-| Smithery | push (`.mcpb`) | — | — |
+| Smithery | push (`.mcpb`) | bundle ready | needs a Smithery login: `npx @smithery/cli mcp publish ./freehire-<v>.mcpb -n strelov1/freehire` |
 
 ### Claude Code directories
 
@@ -252,7 +253,7 @@ crawl-based directories read.
 
 | Target | Mechanic | Submitted | Listing |
 |---|---|---|---|
-| Homebrew tap `strelov1/freehire` | push | — | — |
+| Homebrew tap `strelov1/freehire` | push | 2026-08-16 | https://github.com/strelov1/homebrew-freehire — `brew install strelov1/freehire/freehire`, audit clean |
 | npm `freehire-mcp` | push | 2026-07 | https://www.npmjs.com/package/freehire-mcp |
 
 **Out of scope:** `homebrew-core` (gates on notability).
