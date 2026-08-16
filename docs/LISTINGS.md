@@ -217,8 +217,14 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 |---|---|---|---|
 | Anthropic plugin directory | form | — | — |
 | ccplugins/awesome-claude-code-plugins | push | — | — |
-| hesreallyhim/awesome-claude-code | push | — | — |
+| hesreallyhim/awesome-claude-code | form | — | — |
 | claudemarketplaces.com | crawl | — | — |
+
+`hesreallyhim/awesome-claude-code` takes **no pull requests** — recommendations go through
+the web issue form only, submitting via `gh` is explicitly impossible, and the maintainer
+asks that a human file it. It is also openly selective: the CONTRIBUTING file warns that
+getting listed should not be part of a promotional plan. Treat acceptance as a maybe.
+Entry criteria are met either way (repo created 2026-06-13, actively developed).
 
 ### Product directories
 
@@ -228,6 +234,19 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | SaaSHub | form | — | — |
 | There's An AI For That | form | — | — |
 | Toolify | form | — | — |
+
+### Owned surfaces
+
+Not directories, but the highest-traffic listings we control outright — and the copy
+crawl-based directories read.
+
+| Surface | State |
+|---|---|
+| `strelov1/freehire` README (378★) | build-on row now links the CLI and the MCP server |
+| `freehire.me/llms.txt` | names the MCP server |
+| `freehire.me/mcp` | 308 → `/cli#mcp` |
+| `strelov1/freehire-mcp` README | opens with the scale figures and links freehire.me |
+| GitHub topics on `freehire-mcp` / `freehire-cli` | **not set** — the main repo has 20, these have none |
 
 ### Package managers
 
