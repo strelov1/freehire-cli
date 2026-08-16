@@ -228,6 +228,27 @@ Mechanic: **push** = PR or CLI, done here · **form** = needs a logged-in human 
 | hesreallyhim/awesome-claude-code (52k★) | form | — | web issue form only |
 | claudemarketplaces.com | crawl | — | — |
 
+### Other agents
+
+MCP is not Claude-only, and neither is the skill format. Every host below reads the same
+`freehire-mcp` package — nothing new has to be built, only listed.
+
+| Host | Directory | Mechanic | Submitted | Listing |
+|---|---|---|---|---|
+| Cline | [cline/mcp-marketplace](https://github.com/cline/mcp-marketplace) | push (issue) | 2026-08-16 | [#2254](https://github.com/cline/mcp-marketplace/issues/2254) — needs a 400×400 logo, which now lives at `freehire-mcp/assets/logo-400.png` |
+| goose (52.9k★) | `documentation/static/servers.json` | push | 2026-08-16 | [PR #11280](https://github.com/aaif-goose/goose/pull/11280) |
+| OpenClaw | [clawhub.ai](https://clawhub.ai) | form / CLI | — | `clawhub login` then `clawhub skill publish`; needs an account |
+| Continue | Continue Hub | form | — | hub blocks; `hub.continue.dev` did not resolve — find the current URL first |
+| Cursor, Windsurf, Codex, Gemini CLI | — | — | — | consume MCP directly from config; no directory to submit to |
+
+Two corrections worth keeping: goose moved from `block/goose` to **`aaif-goose/goose`** under
+the Linux Foundation, and ClawHub's live domain is **clawhub.ai** — `clawhub.io` serves an
+expired certificate.
+
+Cline requires proof that installation works from the README alone. It does: `npx -y
+freehire-mcp` from a clean directory answers `initialize` and `tools/list` with no token
+set, so setup cannot stall waiting on a credential.
+
 ### Skill directories
 
 The plugin ships five skills, which makes it eligible for the skills lists as well as the
