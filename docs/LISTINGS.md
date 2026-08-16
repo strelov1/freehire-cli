@@ -334,6 +334,35 @@ the adapter rather than asking them to.
 | DaKheera47/job-ops | 3.9k | [issue #708](https://github.com/DaKheera47/job-ops/issues/708) |
 | speedyapply/JobSpy | 4.1k | [issue #381](https://github.com/speedyapply/JobSpy/issues/381) |
 | santifer/career-ops | 64k | **closed — do not resubmit.** See below |
+| he-yufeng/FindJobs-Agent | 260 | [#5](https://github.com/he-yufeng/FindJobs-Agent/issues/5) |
+| replyre/job-hunter | 153 | [#4](https://github.com/replyre/job-hunter/issues/4) — they hand-maintain 150 career pages |
+| ever-jobs/ever-jobs | 104 | [#58](https://github.com/ever-jobs/ever-jobs/issues/58) — 160+ sources; we'd be one call covering 227 |
+| amikai/openings-mcp | 77 | [#314](https://github.com/amikai/openings-mcp/issues/314) — an MCP server itself |
+| suxrobGM/jobpilot | 53 | [#28](https://github.com/suxrobGM/jobpilot/issues/28) |
+| saeedkolivand/ai-job-hunter-app | 46 | [#1002](https://github.com/saeedkolivand/ai-job-hunter-app/issues/1002) |
+| BjornMelin/ai-job-scraper | 44 | [#57](https://github.com/BjornMelin/ai-job-scraper/issues/57) |
+| leopu00/job-hunter-team | 42 | [#182](https://github.com/leopu00/job-hunter-team/issues/182) |
+| aravindpranav/job-agent | 37 | [#1](https://github.com/aravindpranav/job-agent/issues/1) |
+| girshovich/job-hunter | 31 | [#3](https://github.com/girshovich/job-hunter/issues/3) — self-hosted runs currently need a paid discovery key |
+| Keljian/JSE | 24 | [#3](https://github.com/Keljian/JSE/issues/3) |
+| cboyd0319/JobSentinel | 22 | [#348](https://github.com/cboyd0319/JobSentinel/issues/348) |
+| perryvegehan/PWP_jobhunt | 18 | [#2](https://github.com/perryvegehan/PWP_jobhunt/issues/2) |
+| VonTerraProject501c3/slushpile | 14 | [#32](https://github.com/VonTerraProject501c3/slushpile/issues/32) |
+| vesaias/JobNavigator | 13 | [#4](https://github.com/vesaias/JobNavigator/issues/4) |
+| abhishektuteja01/ApplYourself | 13 | [#2](https://github.com/abhishektuteja01/ApplYourself/issues/2) — sponsorship-aware, and visa is a server-side filter here |
+
+**Rule that decides who to approach.** A project that *consumes* postings is a candidate. A
+project that *builds its own aggregator* is not — it will not adopt a competitor, however
+good the API. `career-ops` proved it the expensive way, so these were checked first and
+skipped on that basis: `colophon-group/jobseek` (174★, crawls 4,400 career pages itself) and
+`Feashliaa/job-board-aggregator` (116★, 1M+ positions from 20K companies).
+
+Also skipped: `zhiyuanMA/cvpilot-skill` — both of its sub-skills take a job posting as
+*input* from the user, so there is nothing to source.
+
+Each issue was written against the specific repo's architecture rather than pasted. That is
+not politeness — a generic "add our API" issue in fifteen repos reads as spam and gets
+closed as such.
 
 **career-ops is closed on purpose, and the reason is strategic.** The first attempt (#1082,
 PR #1197) was rejected on policy: career-ops does not wire user data out to third parties,
