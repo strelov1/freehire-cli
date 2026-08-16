@@ -101,8 +101,10 @@ Strictly ordered. Everything downstream depends on it.
 
 ### Icon
 
-The registry accepts `icons`; the site has `og.png` but no square asset. A square PNG is
-needed. If none exists, the listing ships without an icon rather than with a cropped one.
+Resolved during implementation: the site already ships square brand assets, generated from
+the brand mark by `web/scripts/gen-pwa-icons.mjs` and served over HTTPS —
+`favicon.svg` and `pwa-512x512.png`. Both go in `server.json`; no new asset is needed, and
+nothing has to be cropped from `og.png`.
 
 ## Phase 1 — MCP directories (`freehire-mcp`)
 
