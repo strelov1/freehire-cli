@@ -40,6 +40,11 @@ freehire profile                                               # your saved role
 freehire experience list                                       # your whole experience bank (employments + achievements)
 freehire experience employments add --company Acme --role SWE  # record a new job or project
 freehire experience atoms add --claim "Cut latency 20s to 1s" --metric "20s->1s" --skill go  # record a new achievement
+freehire cv tailor <slug>                                      # start (or reopen) tailoring for a vacancy — prints the CV id
+freehire cv list                                               # the tailored CVs you already have, with their vacancies
+freehire cv context <cv-id>                                    # the fit analysis to reframe toward (missing_have vs missing_gap)
+freehire cv edit <cv-id> --set 'summary=…'                     # edit by path; a claim needs --evidence <atom-id>
+freehire cv render <cv-id> --out cv.pdf                        # download the ATS PDF
 freehire facets                                                # list every filter's live values + counts (what to filter by)
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
@@ -74,6 +79,16 @@ copy an id from there to attach a new achievement to it with `atoms add
 which is what lets it later be cited as `cv edit --evidence <id>`. Correcting or
 removing an existing entry is not exposed here — do that from the experience page
 on the site.
+
+**Tailoring a CV.** `cv tailor <job-slug>` copies your base CV into a
+vacancy-bound one and prints the CV id every other `cv` command takes; it is
+idempotent per vacancy, so running it again reopens the same copy. `cv list`
+shows the copies you already have. It spends AI credits the first time it
+creates one, and needs a résumé on the site to seed a base CV from. Editing with
+a key edits as the tailoring agent: the contact block is refused, and anything
+stating what you DID needs `--evidence <atom-id>` from the experience bank. The
+readiness score, the revision history and undo stay on the site — deliberately,
+so the agent cannot read or revert the measure of its own work.
 
 **Discovering values.** `freehire facets [filters]` lists every filter's live
 values with a vacancy count each (and the `skills` vocabulary), so you pass real

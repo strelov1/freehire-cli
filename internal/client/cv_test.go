@@ -15,6 +15,23 @@ import (
 func cvFakeAPI(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/me/cvs", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Errorf("list method = %s, want GET", r.Method)
+		}
+		w.Write([]byte(`{"data":[{"id":"3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76","title":"Tailored — Go Dev","job_slug":"go-dev-acme"}]}`))
+	})
+	mux.HandleFunc("/api/v1/me/cvs/tailor", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			t.Errorf("tailor method = %s, want POST", r.Method)
+		}
+		b, _ := io.ReadAll(r.Body)
+		if !strings.Contains(string(b), `"job_slug":"go-dev-acme"`) {
+			t.Errorf("tailor body did not carry the slug: %s", b)
+		}
+		w.WriteHeader(http.StatusCreated)
+		w.Write([]byte(`{"data":{"tailor_cv_id":"3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76","base_cv_id":"b0","session_id":"s1"}}`))
+	})
 	mux.HandleFunc("/api/v1/me/cvs/3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76/tailor-context", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			t.Errorf("tailor-context method = %s, want GET", r.Method)
@@ -53,6 +70,30 @@ func cvFakeAPI(t *testing.T) *httptest.Server {
 
 // testCV is an id the API would hand out: opaque, and nothing the CLI parses.
 const testCV = "3f2a9c14-7b6e-4a58-9d21-8e4c5f0b1a76"
+
+func TestClient_ListCVs(t *testing.T) {
+	srv := cvFakeAPI(t)
+	c := New(srv.URL, "good", srv.Client())
+	data, err := c.ListCVs(context.Background())
+	if err != nil {
+		t.Fatalf("ListCVs: %v", err)
+	}
+	if !strings.Contains(string(data), testCV) {
+		t.Errorf("list data = %s", data)
+	}
+}
+
+func TestClient_TailorCV(t *testing.T) {
+	srv := cvFakeAPI(t)
+	c := New(srv.URL, "good", srv.Client())
+	data, err := c.TailorCV(context.Background(), "go-dev-acme")
+	if err != nil {
+		t.Fatalf("TailorCV: %v", err)
+	}
+	if !strings.Contains(string(data), `"tailor_cv_id"`) {
+		t.Errorf("tailor data = %s", data)
+	}
+}
 
 func TestClient_TailorCVContext(t *testing.T) {
 	srv := cvFakeAPI(t)

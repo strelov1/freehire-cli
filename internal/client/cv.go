@@ -12,6 +12,34 @@ import (
 // CV-tailoring endpoints (beta-gated on the server). These act as the authenticated
 // user — the agent drives them with its minted session key.
 
+// ListCVs returns the caller's tailored CVs, newest edit first, each with the vacancy it
+// was written for (GET /me/cvs). This is where a CV id comes from: every other command in
+// this group is addressed by one, and the id is opaque, so it has to be read rather than
+// constructed.
+func (c *Client) ListCVs(ctx context.Context) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/me/cvs", nil)
+	return env.Data, err
+}
+
+// TailorCV starts (or reopens) tailoring for a vacancy and returns the tailored CV's id, the
+// base it was copied from, and the bound agent session (POST /me/cvs/tailor). Idempotent per
+// vacancy: calling it again for the same slug returns the copy that already exists rather
+// than making a second one.
+//
+// It debits the caller's AI credits the first time it creates the copy — a 402 comes back
+// when the balance will not cover it — and 409s when there is no résumé to seed a base CV
+// from. It never calls the LLM itself.
+func (c *Client) TailorCV(ctx context.Context, jobSlug string) (json.RawMessage, error) {
+	body, err := json.Marshal(struct {
+		JobSlug string `json:"job_slug"`
+	}{JobSlug: jobSlug})
+	if err != nil {
+		return nil, err
+	}
+	env, err := c.do(ctx, http.MethodPost, "/api/v1/me/cvs/tailor", bytes.NewReader(body))
+	return env.Data, err
+}
+
 // TailorCVContext returns the cached fit-analysis context for a tailored CV: the
 // verdict, recommendation, dimension comments, and the missing-have / missing-gap
 // requirement split the honest wall turns on (GET /me/cvs/:id/tailor-context).
