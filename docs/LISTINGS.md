@@ -38,6 +38,13 @@ Design: [`docs/superpowers/specs/2026-08-16-catalog-listings-design.md`](superpo
 | repository | `https://github.com/strelov1/freehire-mcp` |
 | license | MIT |
 
+**Shortest — 66 chars.** For a directory's one-line description field (Smithery's, for
+one). Drops the verbs and keeps the claim.
+
+```
+freehire.me: search 3.3M+ IT jobs from 294K company career boards.
+```
+
 **Short — 91 chars.** For `server.json` (hard cap 100) and any field that truncates.
 
 ```
