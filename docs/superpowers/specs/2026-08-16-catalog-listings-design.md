@@ -36,8 +36,13 @@ These were settled during design and are not open questions:
 - **Nothing is submitted externally without an explicit go-ahead.** Manifests, copy,
   branches and draft PRs are prepared freely; every push outward is shown first.
 - **Smithery is in scope**, via a locally-distributed `.mcpb` bundle.
-- **Product Hunt is out of scope.** A launch cannot be replayed, and spending it inside a
-  bulk directory sweep wastes it. Planned separately.
+- **Product Hunt is out of scope, and already scheduled: 26 August 2026** (the banner is
+  live on `/open`). A launch cannot be replayed, so it is not folded into a bulk directory
+  sweep. It does, however, set this work's deadline — the listings should be live *before*
+  the launch, so it lands on a product the directories already know.
+- **Scale figures are floors, not live numbers.** Counts appear in the copy, but rounded
+  down hard, so a listing nobody revisits stays true as the catalogue grows. `llms.txt`
+  already demonstrates the failure mode: it says "200,000+ companies" against a live 294.7K.
 - **`homebrew-core` is out of scope.** It gates on notability; a submission now is a
   guaranteed rejection. A personal tap instead.
 
