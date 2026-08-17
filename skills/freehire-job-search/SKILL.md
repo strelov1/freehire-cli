@@ -56,12 +56,17 @@ Named flags: `--remote --region --country --city --company --category --role
 (each repeatable). `--facet key=value` reaches any other facet in the vocabulary.
 `--skills` here is a *filter* (jobs listing the skill). `--limit`/`--offset` page.
 
-**Filtering things OUT.** `--exclude-skill python` drops jobs tagged with that
+**Filtering things OUT.** `--exclude-skill python` drops jobs **tagged** with that
 skill — the way to say "contract work, but not the Python ones". Every other
 facet takes the same `_exclude` suffix through `--facet`, e.g. `--facet
-company_type_exclude=outstaff`. Treat an exclusion as a *discovery* filter, not a
-fit test: it drops jobs that name the skill, not jobs whose real core is a stack
-the candidate lacks.
+company_type_exclude=outstaff`.
+
+Tags come from a curated dictionary read off the description, so treat an
+exclusion as a *discovery* filter, not a fit test. Two ways it under-delivers: a
+mention the dictionary does not recognise leaves the job tagless and in the
+results, and excluding one language says nothing about the stack a job actually
+runs on — `--exclude-skill python` still returns roles whose real core is cloud,
+CI/CD or SQL.
 
 **Geography widens, it does not narrow.** `--region`, `--country` and `--city`
 are ONE OR-group: `--region eu --country IT` means "in Europe **or** in Italy" and
