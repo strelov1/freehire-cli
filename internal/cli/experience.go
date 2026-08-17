@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -10,27 +11,33 @@ import (
 	"github.com/strelov1/freehire-cli/internal/client"
 )
 
-// newExperienceCmd is the `experience` command group. Reading, adding and correcting all
-// take a key — the same full-scope key that already reaches `cv edit` and `apply`.
+// newExperienceCmd is the `experience` command group. Reading, adding, correcting and
+// removing all take a key — the same full-scope key that already reaches `cv edit` and
+// `apply`.
 //
-// Removing does not, and that is the server's rule rather than a missing command: DELETE on
-// either kind, and the merge that folds two achievements together, stay cookie-only. The
-// bank has no undo, and deleting an employment cascades to every achievement under it, so
-// destruction is left where the candidate can see it happen.
+// Two things stay out of reach, and both are the server's rule rather than a missing
+// command. Removing a place that still holds achievements would delete them with it (the
+// foreign key cascades) and the bank has no undo, so a keyed caller must empty it first.
+// The merge that folds two achievements together pulls the discarded one's numbers into the
+// kept one while the kept one's provenance stands, so it stays where the candidate can see
+// both entries side by side.
 func newExperienceCmd() *cobra.Command {
 	experience := &cobra.Command{
 		Use:   "experience",
-		Short: "Read, add to and correct your experience bank",
+		Short: "Read, add to, correct and prune your experience bank",
 		Long: "The durable record of what you've actually done — employments and the " +
 			"evidence attached to them — that CVs are tailored from. `list` shows the " +
 			"whole bank; `employments add` and `atoms add` record new entries; " +
-			"`employments update` and `atoms update` correct one.\n\n" +
+			"`employments update` and `atoms update` correct one; `rm` removes one.\n\n" +
 			"An atom added here is stamped `manual` provenance — you typed it yourself, " +
 			"the only honest claim an API call outside a chat can make. Correcting an " +
 			"entry with a key does NOT restamp it: an achievement the agent inferred " +
 			"stays inferred, and so stays off the CV. Only your own edit on the site " +
 			"turns it into something you assert.\n\n" +
-			"Deleting is on the site only.",
+			"Removing is final — there is no undo. A place must be emptied before it can " +
+			"go, so retiring a duplicate means moving its achievements to the entry you " +
+			"are keeping first. Folding two achievements into one (keeping the numbers " +
+			"from both) is on the site.",
 	}
 	experience.AddCommand(newExperienceListCmd(), newExperienceEmploymentsCmd(), newExperienceAtomsCmd())
 	return experience
@@ -182,8 +189,83 @@ func newExperienceEmploymentsCmd() *cobra.Command {
 		Use:   "employments",
 		Short: "Manage the places your achievements are attached to",
 	}
-	employments.AddCommand(newExperienceEmploymentsAddCmd(), newExperienceEmploymentsUpdateCmd())
+	employments.AddCommand(newExperienceEmploymentsAddCmd(), newExperienceEmploymentsUpdateCmd(),
+		newExperienceEmploymentsRmCmd())
 	return employments
+}
+
+// confirmDestroy asks before something that cannot be undone, and accepts only the exact
+// word. A y/n prompt would let a stray keystroke — or a piped newline — destroy an entry,
+// and the bank has no undo to fall back on.
+//
+// This guards the person at the keyboard. It is NOT what protects the bank from a careless
+// automated caller: that rule lives on the server, which refuses a keyed delete of a place
+// that still holds achievements. A prompt is no obstacle to a program that can answer it.
+func confirmDestroy(cmd *cobra.Command, what string) (bool, error) {
+	if yes, _ := cmd.Flags().GetBool("yes"); yes {
+		return true, nil
+	}
+	out := cmd.OutOrStdout()
+	fmt.Fprintf(out, "This removes %s. It cannot be undone.\n", what)
+	fmt.Fprint(out, `Type "delete" to confirm: `)
+	sc := bufio.NewScanner(cmd.InOrStdin())
+	answer := ""
+	if sc.Scan() {
+		answer = strings.TrimSpace(sc.Text())
+	}
+	if answer != "delete" {
+		fmt.Fprintln(out, "Cancelled — nothing was removed.")
+		return false, nil
+	}
+	return true, nil
+}
+
+func newExperienceEmploymentsRmCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "rm <employment-id>",
+		Aliases: []string{"remove", "delete"},
+		Short:   "Remove a place you recorded",
+		Long: "Remove an employment. It must hold no achievements first — removing a place " +
+			"deletes everything recorded under it, and the bank has no undo, so the API " +
+			"refuses that from a key.\n\n" +
+			"To retire a duplicate place, move its achievements to the one you are keeping " +
+			"(`experience atoms update <id> --employment <keep-id>`), then remove the empty " +
+			"shell. To remove a place WITH its achievements, do it on the experience page on " +
+			"the site, where you are shown what goes with it.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := strings.TrimSpace(args[0])
+			c, _, err := authedClient(cmd)
+			if err != nil {
+				return err
+			}
+			bank, err := fetchBank(cmd, c)
+			if err != nil {
+				return err
+			}
+			cur, ok := bank.findEmployment(id)
+			if !ok {
+				return fmt.Errorf("no employment %s in your bank — check the id with `freehire experience list`", id)
+			}
+			if n := len(cur.Atoms); n > 0 {
+				return fmt.Errorf("%q still holds %d achievement(s), and removing it would delete them too.\n"+
+					"Move them first: freehire experience atoms update <atom-id> --employment <other-id>\n"+
+					"Or remove the place with its achievements from the experience page on the site.",
+					cur.label(), n)
+			}
+			ok, err = confirmDestroy(cmd, fmt.Sprintf("the empty place %q", cur.label()))
+			if err != nil || !ok {
+				return err
+			}
+			if err := c.DeleteEmployment(cmd.Context(), id); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed %q\n", cur.label())
+			return nil
+		},
+	}
+	cmd.Flags().Bool("yes", false, "skip the confirmation (for scripts)")
+	return cmd
 }
 
 // employmentFlagNames are the fields `employments update` can change; `add` offers the same
@@ -309,8 +391,51 @@ func newExperienceAtomsCmd() *cobra.Command {
 		Use:   "atoms",
 		Short: "Manage the achievements attached to your employments",
 	}
-	atoms.AddCommand(newExperienceAtomsAddCmd(), newExperienceAtomsUpdateCmd())
+	atoms.AddCommand(newExperienceAtomsAddCmd(), newExperienceAtomsUpdateCmd(),
+		newExperienceAtomsRmCmd())
 	return atoms
+}
+
+func newExperienceAtomsRmCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "rm <atom-id>",
+		Aliases: []string{"remove", "delete"},
+		Short:   "Remove an achievement",
+		Long: "Remove one banked achievement. It takes nothing else with it, and there is no " +
+			"undo. Take the id from `experience list`.\n\n" +
+			"This is how a duplicate goes: keep the richer entry, remove the other. To fold " +
+			"two entries into one — keeping the numbers from both — use the experience page " +
+			"on the site, where they are shown side by side.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := strings.TrimSpace(args[0])
+			c, _, err := authedClient(cmd)
+			if err != nil {
+				return err
+			}
+			bank, err := fetchBank(cmd, c)
+			if err != nil {
+				return err
+			}
+			cur, ok := bank.findAtom(id)
+			if !ok {
+				return fmt.Errorf("no achievement %s in your bank — check the id with `freehire experience list`", id)
+			}
+			// Quote the claim back rather than the id: an id says nothing about what is
+			// about to be lost, and the whole purpose of asking is to make that visible.
+			ok, err = confirmDestroy(cmd, fmt.Sprintf("%q", trunc(cur.Claim, 90)))
+			if err != nil || !ok {
+				return err
+			}
+			if err := c.DeleteAtom(cmd.Context(), id); err != nil {
+				return err
+			}
+			fmt.Fprintf(cmd.OutOrStdout(), "Removed %q\n", trunc(cur.Claim, 90))
+			return nil
+		},
+	}
+	cmd.Flags().Bool("yes", false, "skip the confirmation (for scripts)")
+	return cmd
 }
 
 // atomFlagNames are the fields `atoms update` can change.

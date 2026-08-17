@@ -12,9 +12,10 @@ import (
 // PUTs correct — all reachable with a full-scope key, same as everywhere else this CLI
 // authenticates.
 //
-// Removing is not here, and that is the server's rule rather than an omission: DELETE on
-// either kind, and the atom merge, stay cookie-only. The bank has no undo, and deleting an
-// employment cascades to every achievement under it.
+// Removing is here too, minus the cascade: the server refuses a keyed DELETE of an
+// employment that still holds achievements (409), because that delete would take them with
+// it and the bank has no undo. Move them first, then remove the empty place. The atom merge
+// stays cookie-only.
 //
 // A keyed correction cannot move a claim's provenance — the server keeps whatever the row
 // already carried, so an agent cannot promote its own inference into something citable on
@@ -90,6 +91,23 @@ func (c *Client) UpdateAtom(ctx context.Context, id string, p CreateAtomParams) 
 	}
 	env, err := c.do(ctx, http.MethodPut, "/api/v1/me/experience/atoms/"+url.PathEscape(id), bytes.NewReader(body))
 	return env.Data, err
+}
+
+// DeleteAtom removes one owned achievement (DELETE /me/experience/atoms/:id). It takes
+// nothing else with it — the row named is the only row removed — and there is no undo.
+func (c *Client) DeleteAtom(ctx context.Context, id string) error {
+	_, err := c.do(ctx, http.MethodDelete, "/api/v1/me/experience/atoms/"+url.PathEscape(id), nil)
+	return err
+}
+
+// DeleteEmployment removes one owned place (DELETE /me/experience/employments/:id).
+//
+// The server refuses this with 409 while achievements still hang off the place, because the
+// row's foreign key cascades and would delete them too. That refusal is the API's, not this
+// client's: move the achievements with UpdateAtom first, then remove the empty place.
+func (c *Client) DeleteEmployment(ctx context.Context, id string) error {
+	_, err := c.do(ctx, http.MethodDelete, "/api/v1/me/experience/employments/"+url.PathEscape(id), nil)
+	return err
 }
 
 // UpdateEmployment replaces an owned employment (PUT /me/experience/employments/:id), with
