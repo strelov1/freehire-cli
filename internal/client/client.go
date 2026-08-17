@@ -46,11 +46,24 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("api error %d", e.Status)
 }
 
-// Page is a slice of list results: the raw `data` array plus the total match
-// count from `meta`. Returned by Search and MyJobs.
+// IgnoredParam is a query param the API did not read, reported back in `meta`.
+// DidYouMean carries the real facet name when the sent one was only its
+// singular — the common miss, since most facets are plural.
+type IgnoredParam struct {
+	Param      string `json:"param"`
+	DidYouMean string `json:"did_you_mean"`
+}
+
+// Page is a slice of list results: the raw `data` array, the total match count
+// from `meta`, and any params the API ignored. Returned by Search and MyJobs.
+//
+// Ignored matters more than it looks: an unread filter does not fail the
+// request, it widens it, so the count comes back larger and reads as a real
+// answer. Callers surface it rather than dropping it.
 type Page struct {
-	Data  json.RawMessage
-	Total int
+	Data    json.RawMessage
+	Total   int
+	Ignored []IgnoredParam
 }
 
 // SearchParams are the inputs to a job search: query text, pagination, and
@@ -66,7 +79,8 @@ type SearchParams struct {
 type envelope struct {
 	Data json.RawMessage `json:"data"`
 	Meta struct {
-		Total int `json:"total"`
+		Total         int            `json:"total"`
+		IgnoredParams []IgnoredParam `json:"ignored_params"`
 	} `json:"meta"`
 	Error string `json:"error"`
 }
@@ -94,14 +108,17 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	q.Set("q", p.Query)
 	q.Set("limit", strconv.Itoa(p.Limit))
 	q.Set("offset", strconv.Itoa(p.Offset))
-	q.Set("semantic_ratio", "0") // keyword search, matching the web client
-	q.Set("include_description", "true")
+	// The endpoint always returns full descriptions, so only the rendering needs
+	// asking for. It used to also send semantic_ratio=0 and
+	// include_description=true; the first died with the hybrid index and the
+	// second was never read, and the API now reports unread params as warnings —
+	// so sending them would hand the user two they cannot act on.
 	q.Set("description_format", "markdown")
 	env, err := c.do(ctx, http.MethodGet, "/api/v1/agent/jobs/search?"+q.Encode(), nil)
 	if err != nil {
 		return Page{}, err
 	}
-	return Page{Data: env.Data, Total: env.Meta.Total}, nil
+	return Page{Data: env.Data, Total: env.Meta.Total, Ignored: env.Meta.IgnoredParams}, nil
 }
 
 // CoverageParams is a market-coverage query: Skills is the measured skill list

@@ -44,6 +44,7 @@ func newSearchCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			warnIgnored(cmd, res.Ignored)
 			if wantJSON(cmd) {
 				printJSON(cmd, res.Data)
 				return nil

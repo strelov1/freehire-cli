@@ -33,11 +33,8 @@ func fakeAPI(t *testing.T) *httptest.Server {
 		if regions := q["regions"]; len(regions) != 2 || regions[0] != "eu" || regions[1] != "us" {
 			t.Errorf("regions = %v, want [eu us]", regions)
 		}
-		// Search always asks the agent endpoint for full descriptions, rendered
-		// as markdown rather than the stored HTML.
-		if q.Get("include_description") != "true" {
-			t.Errorf("include_description = %q, want true", q.Get("include_description"))
-		}
+		// The agent endpoint always returns full descriptions, so only the
+		// rendering is asked for — include_description was never read.
 		if q.Get("description_format") != "markdown" {
 			t.Errorf("description_format = %q, want markdown", q.Get("description_format"))
 		}

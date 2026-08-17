@@ -47,13 +47,34 @@ lowercase slugs (`go`, `react`, `kubernetes`) — do not invent facet values.
 ```bash
 freehire search "golang" --remote --region eu --seniority senior
 freehire search "data" --country BR --employment-type full_time
+freehire search "AI" --country IT --employment-type contract --exclude-skill python
 freehire search "backend" --facet source=greenhouse   # any facet via --facet key=value
 ```
 
 Named flags: `--remote --region --country --city --company --category --role
---seniority --employment-type --english-level --salary-min --visa` (each repeatable).
-`--facet key=value` reaches any other facet in the vocabulary. `--skills` here is a
-*filter* (jobs listing the skill). `--limit`/`--offset` page.
+--seniority --employment-type --english-level --salary-min --visa --exclude-skill`
+(each repeatable). `--facet key=value` reaches any other facet in the vocabulary.
+`--skills` here is a *filter* (jobs listing the skill). `--limit`/`--offset` page.
+
+**Filtering things OUT.** `--exclude-skill python` drops jobs tagged with that
+skill — the way to say "contract work, but not the Python ones". Every other
+facet takes the same `_exclude` suffix through `--facet`, e.g. `--facet
+company_type_exclude=outstaff`. Treat an exclusion as a *discovery* filter, not a
+fit test: it drops jobs that name the skill, not jobs whose real core is a stack
+the candidate lacks.
+
+**Geography widens, it does not narrow.** `--region`, `--country` and `--city`
+are ONE OR-group: `--region eu --country IT` means "in Europe **or** in Italy" and
+returns everything `--region eu` alone would. To search one country, pass the
+country and **drop the region**. The combination exists for genuinely disjoint
+reach ("Europe or Brazil"); intersecting a region with a country inside it would
+always be empty, so it is not what the flags do.
+
+**Read the warnings on stderr.** A filter param the API does not recognize is
+ignored, not refused — the search still runs, just wider. The CLI prints
+`warning: ignored unknown filter "country" — did you mean "countries"?` to stderr
+(stdout stays clean JSON). Never report a count from a run that printed one:
+the number describes a broader search than the one intended.
 
 `--json search` returns each hit's **full description as markdown**, so you can
 screen a result set in one call — reach for `job <slug>` only when you need a

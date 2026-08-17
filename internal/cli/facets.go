@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/strelov1/freehire-cli/internal/client"
 )
 
 // namedFacet binds a convenience CLI flag to the API facet param it fills. These
@@ -25,6 +27,12 @@ var namedFacets = []namedFacet{
 	{"seniority", "seniority", "seniority: intern|junior|middle|senior|staff|principal|lead|c_level"},
 	{"employment-type", "employment_type", "employment type, e.g. full_time, contract"},
 	{"english-level", "english_level", "English level, e.g. a2, b1, b2, c1"},
+	// Exclusion is a first-class part of a real search — "contract work, but not
+	// the Python ones" — and every facet supports the `<param>_exclude`
+	// convention. Only skills get a named flag: it is the exclusion people
+	// actually reach for, and the generic --facet covers the rest
+	// (--facet company_type_exclude=outstaff) without a flag per facet.
+	{"exclude-skill", "skills_exclude", "skill to filter OUT, e.g. python"},
 }
 
 // addFacetFlags registers the shared market-filter flags on a command: the named
@@ -41,6 +49,23 @@ func addFacetFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("salary-min", 0, "minimum salary (enrichment.salary_min)")
 	cmd.Flags().Bool("visa", false, "only jobs offering visa sponsorship")
 	cmd.Flags().StringArray("facet", nil, "arbitrary facet as key=value, e.g. --facet source=greenhouse (repeatable)")
+}
+
+// warnIgnored reports the query params the API did not read, on stderr.
+//
+// stderr, not stdout: --json output is piped into jq or an agent's parser, and a
+// warning mixed into it would break the parse. Staying silent instead is worse
+// than either — an unread filter widens the result set rather than failing the
+// request, so the caller gets a bigger, wronger answer with nothing to show that
+// anything went astray.
+func warnIgnored(cmd *cobra.Command, ignored []client.IgnoredParam) {
+	for _, p := range ignored {
+		if p.DidYouMean != "" {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: ignored unknown filter %q — did you mean %q?\n", p.Param, p.DidYouMean)
+			continue
+		}
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ignored unknown filter %q\n", p.Param)
+	}
 }
 
 // facetsFromFlags collects the shared market-filter flags into API query params.
