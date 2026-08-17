@@ -60,11 +60,11 @@ func addFacetFlags(cmd *cobra.Command) {
 // anything went astray.
 func warnIgnored(cmd *cobra.Command, ignored []client.IgnoredParam) {
 	for _, p := range ignored {
+		hint := ""
 		if p.DidYouMean != "" {
-			fmt.Fprintf(cmd.ErrOrStderr(), "warning: ignored unknown filter %q — did you mean %q?\n", p.Param, p.DidYouMean)
-			continue
+			hint = fmt.Sprintf(" — did you mean %q?", p.DidYouMean)
 		}
-		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ignored unknown filter %q\n", p.Param)
+		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ignored unknown filter %q%s\n", p.Param, hint)
 	}
 }
 
