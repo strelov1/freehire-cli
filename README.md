@@ -42,6 +42,8 @@ freehire experience employments add --company Acme --role SWE  # record a new jo
 freehire experience atoms add --claim "Cut latency 20s to 1s" --metric "20s->1s" --skill go  # record a new achievement
 freehire experience atoms update <id> --claim "Cut p99 20s to 900ms"  # fix one field; the rest is kept
 freehire experience employments update <id> --end "Dec 2025"   # same, for a place
+freehire experience atoms rm <id>                              # remove an achievement (asks first)
+freehire experience employments rm <id>                        # remove a place — it must be empty
 freehire cv tailor <slug>                                      # start (or reopen) tailoring for a vacancy — prints the CV id
 freehire cv list                                               # the tailored CVs you already have, with their vacancies
 freehire cv context <cv-id>                                    # the fit analysis to reframe toward (missing_have vs missing_gap)
@@ -88,9 +90,15 @@ given.
 
 A correction made with a key does **not** restamp provenance: an achievement the
 agent inferred stays `agent_inferred`, and so stays uncitable on a CV. Only your
-own edit on the site turns it into something you assert. **Deleting is on the site
-only** — the bank has no undo, and removing an employment takes every achievement
-under it with it.
+own edit on the site turns it into something you assert.
+
+`atoms rm <id>` and `employments rm <id>` remove an entry. This is final — the
+bank has no undo — so both ask you to type `delete` unless you pass `--yes`. A
+place must be **empty** before it can go: removing one would delete every
+achievement under it, and the API refuses that from a key. To retire a duplicate
+place, move its achievements to the one you are keeping
+(`atoms update <id> --employment <keep-id>`), then remove the shell. Folding two
+achievements into one — keeping the numbers from both — is on the site.
 
 **Tailoring a CV.** `cv tailor <job-slug>` copies your base CV into a
 vacancy-bound one and prints the CV id every other `cv` command takes; it is
