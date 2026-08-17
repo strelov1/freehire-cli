@@ -51,10 +51,12 @@ freehire search "AI" --country IT --employment-type contract --exclude-skill pyt
 freehire search "backend" --facet source=greenhouse   # any facet via --facet key=value
 ```
 
-Named flags: `--remote --region --country --city --company --category --role
---seniority --employment-type --english-level --salary-min --visa --exclude-skill`
-(each repeatable). `--facet key=value` reaches any other facet in the vocabulary.
-`--skills` here is a *filter* (jobs listing the skill). `--limit`/`--offset` page.
+Repeatable filter flags (pass again to OR more values): `--region --country --city
+--company --category --role --seniority --employment-type --english-level
+--exclude-skill --skills --facet`. Single-valued: `--remote` and `--visa` are
+toggles, `--salary-min` is one number. `--facet key=value` reaches any other facet
+in the vocabulary. `--skills` here is a *filter* (jobs listing the skill).
+`--limit`/`--offset` page.
 
 **Filtering things OUT.** `--exclude-skill python` drops jobs **tagged** with that
 skill — the way to say "contract work, but not the Python ones". Every other
@@ -71,9 +73,10 @@ CI/CD or SQL.
 **Geography widens, it does not narrow.** `--region`, `--country` and `--city`
 are ONE OR-group: `--region eu --country IT` means "in Europe **or** in Italy" and
 returns everything `--region eu` alone would. To search one country, pass the
-country and **drop the region**. The combination exists for genuinely disjoint
-reach ("Europe or Brazil"); intersecting a region with a country inside it would
-always be empty, so it is not what the flags do.
+country and **drop the region**. The three name a single concept — *where* — so
+picking two places reads as "either", which is what makes `--region eu --country BR`
+("Europe or Brazil") useful. There is no AND to switch on: `_mode=and` does not
+apply to geography.
 
 **Read the warnings on stderr.** A filter param the API does not recognize is
 ignored, not refused — the search still runs, just wider. The CLI prints
