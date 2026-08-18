@@ -102,6 +102,14 @@ func (c *Client) Me(ctx context.Context) (json.RawMessage, error) {
 	return env.Data, err
 }
 
+// Status returns the public ingest-fleet health (GET /status): overall verdict,
+// last_job_added_at, and a per-provider rollup. Unauthenticated — it is the
+// CLI's "is the pipeline alive" check.
+func (c *Client) Status(ctx context.Context) (json.RawMessage, error) {
+	env, err := c.do(ctx, http.MethodGet, "/api/v1/status", nil)
+	return env.Data, err
+}
+
 // Search runs a keyword job search with optional facet filters
 // (GET /agent/jobs/search). That endpoint runs the same query as the web's
 // /jobs/search but, for programmatic consumers, replaces the index's truncated

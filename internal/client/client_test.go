@@ -53,6 +53,9 @@ func fakeAPI(t *testing.T) *httptest.Server {
 	mux.HandleFunc("/api/v1/jobs/go-dev", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"data":{"public_slug":"go-dev","title":"Go Dev","description":"Build things"}}`))
 	})
+	mux.HandleFunc("/api/v1/status", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"data":{"overall":"operational","generated_at":"2026-08-18T12:00:00Z","last_job_added_at":"2026-08-18T11:55:00Z","providers":[]}}`))
+	})
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer good" {
@@ -82,6 +85,29 @@ func TestClient_Me(t *testing.T) {
 	}
 	if u.Email != "agent@example.test" {
 		t.Errorf("email = %q", u.Email)
+	}
+}
+
+func TestClient_Status(t *testing.T) {
+	srv := fakeAPI(t)
+	c := New(srv.URL, "good", srv.Client())
+
+	data, err := c.Status(context.Background())
+	if err != nil {
+		t.Fatalf("Status: %v", err)
+	}
+	var s struct {
+		Overall        string `json:"overall"`
+		LastJobAddedAt string `json:"last_job_added_at"`
+	}
+	if err := json.Unmarshal(data, &s); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if s.Overall != "operational" {
+		t.Errorf("overall = %q, want operational", s.Overall)
+	}
+	if s.LastJobAddedAt != "2026-08-18T11:55:00Z" {
+		t.Errorf("last_job_added_at = %q", s.LastJobAddedAt)
 	}
 }
 
