@@ -81,8 +81,9 @@ apply to geography.
 **Read the warnings on stderr.** A filter param the API does not recognize is
 ignored, not refused — the search still runs, just wider. The CLI prints
 `warning: ignored unknown filter "country" — did you mean "countries"?` to stderr
-(stdout stays clean JSON). Never report a count from a run that printed one:
-the number describes a broader search than the one intended.
+(stdout stays clean JSON). `search`, `facets` and `market-fit` all report it.
+Never quote a number from a run that printed one: the count, the distribution or
+the coverage percentage answers a broader question than the one asked.
 
 `--json search` returns each hit's **full description as markdown**, so you can
 screen a result set in one call — reach for `job <slug>` only when you need a

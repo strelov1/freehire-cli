@@ -60,3 +60,28 @@ func TestSearch_SendsNoParamTheAPIDoesNotRead(t *testing.T) {
 		}
 	}
 }
+
+func TestFacetsAndCoverage_SurfaceIgnoredParams(t *testing.T) {
+	// These two turn a filter into a number — a vacancy count, a coverage
+	// percentage. A dropped filter does not make the answer look long, it makes
+	// it look wrong-but-confident, so the warning has to reach the caller here
+	// as much as it does on search.
+	srv, _ := searchProbe(t)
+	c := New(srv.URL, "", srv.Client())
+
+	facets, err := c.Facets(context.Background(), url.Values{"country": {"it"}})
+	if err != nil {
+		t.Fatalf("Facets: %v", err)
+	}
+	if len(facets.Ignored) != 2 || facets.Ignored[0].DidYouMean != "countries" {
+		t.Errorf("Facets ignored = %#v, want the country warning", facets.Ignored)
+	}
+
+	coverage, err := c.Coverage(context.Background(), CoverageParams{Skills: []string{"go"}})
+	if err != nil {
+		t.Fatalf("Coverage: %v", err)
+	}
+	if len(coverage.Ignored) != 2 {
+		t.Errorf("Coverage ignored = %#v, want the warnings carried through", coverage.Ignored)
+	}
+}

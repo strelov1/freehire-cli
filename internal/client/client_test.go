@@ -373,8 +373,8 @@ func TestClient_Coverage(t *testing.T) {
 	if gotQuery.Get("category") != "backend" || gotQuery.Get("countries") != "BR" {
 		t.Errorf("query facets = %v, want category=backend&countries=BR", gotQuery)
 	}
-	if !strings.Contains(string(data), `"coverage_percent":60`) {
-		t.Errorf("coverage data = %s", data)
+	if !strings.Contains(string(data.Data), `"coverage_percent":60`) {
+		t.Errorf("coverage data = %s", data.Data)
 	}
 }
 
@@ -401,8 +401,8 @@ func TestClient_Facets(t *testing.T) {
 	if gotQuery.Get("category") != "backend" {
 		t.Errorf("query = %v, want category=backend", gotQuery)
 	}
-	if !strings.Contains(string(data), `"total":1234`) || !strings.Contains(string(data), `"go":180`) {
-		t.Errorf("facets data = %s", data)
+	if !strings.Contains(string(data.Data), `"total":1234`) || !strings.Contains(string(data.Data), `"go":180`) {
+		t.Errorf("facets data = %s", data.Data)
 	}
 }
 

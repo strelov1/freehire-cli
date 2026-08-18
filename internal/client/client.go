@@ -54,6 +54,16 @@ type IgnoredParam struct {
 	DidYouMean string `json:"did_you_mean"`
 }
 
+// Doc is a single-item result: the raw `data` object plus any params the API
+// ignored. The single-item sibling of Page — the filtered endpoints that answer
+// one object rather than a list report the same warning, and losing it on the
+// way through would leave a count or a percentage looking authoritative when it
+// answered a wider question than the caller asked.
+type Doc struct {
+	Data    json.RawMessage
+	Ignored []IgnoredParam
+}
+
 // Page is a slice of list results: the raw `data` array, the total match count
 // from `meta`, and any params the API ignored. Returned by Search and MyJobs.
 //
@@ -133,12 +143,12 @@ type CoverageParams struct {
 // (POST /market/coverage): how many open vacancies for the filter list at least
 // one of the skills, plus ranked skill gaps and the role's top in-demand skills.
 // One skill or many — a single-element Skills probes that skill's demand.
-func (c *Client) Coverage(ctx context.Context, p CoverageParams) (json.RawMessage, error) {
+func (c *Client) Coverage(ctx context.Context, p CoverageParams) (Doc, error) {
 	body, err := json.Marshal(struct {
 		Skills []string `json:"skills"`
 	}{Skills: p.Skills})
 	if err != nil {
-		return nil, err
+		return Doc{}, err
 	}
 	q := url.Values{}
 	for k, vs := range p.Facets {
@@ -151,13 +161,13 @@ func (c *Client) Coverage(ctx context.Context, p CoverageParams) (json.RawMessag
 		path += "?" + enc
 	}
 	env, err := c.do(ctx, http.MethodPost, path, bytes.NewReader(body))
-	return env.Data, err
+	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams}, err
 }
 
 // Facets returns the market's facet-value distributions under an optional filter
 // (GET /jobs/facets): each facet's live values with counts, plus numeric stats. It
 // is the vocabulary an agent reads to know which filter values and skills exist.
-func (c *Client) Facets(ctx context.Context, facets url.Values) (json.RawMessage, error) {
+func (c *Client) Facets(ctx context.Context, facets url.Values) (Doc, error) {
 	q := url.Values{}
 	for k, vs := range facets {
 		for _, v := range vs {
@@ -169,7 +179,7 @@ func (c *Client) Facets(ctx context.Context, facets url.Values) (json.RawMessage
 		path += "?" + enc
 	}
 	env, err := c.do(ctx, http.MethodGet, path, nil)
-	return env.Data, err
+	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams}, err
 }
 
 // Save bookmarks a job (POST /jobs/:slug/save).

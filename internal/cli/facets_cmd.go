@@ -45,12 +45,13 @@ func newFacetsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			warnIgnored(cmd, data.Ignored)
 			if wantJSON(cmd) {
-				printJSON(cmd, data)
+				printJSON(cmd, data.Data)
 				return nil
 			}
 			var r facetsResult
-			if err := json.Unmarshal(data, &r); err != nil {
+			if err := json.Unmarshal(data.Data, &r); err != nil {
 				return err
 			}
 			top, _ := cmd.Flags().GetInt("top")
