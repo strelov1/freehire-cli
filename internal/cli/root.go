@@ -40,7 +40,7 @@ func newRootCmd() *cobra.Command {
 		newSaveCmd(), newUnsaveCmd(), newMyCmd(), newStageCmd(), newNoteCmd(),
 		newCompanyCmd(), newJobsCmd(), newContributeCmd(), newContributionsCmd(), newSubmissionsCmd(),
 		newMarketFitCmd(), newFacetsCmd(), newCVCmd(), newProfileCmd(),
-		newInboxCmd(), newGhostCmd(), newExperienceCmd(), newUpdateCmd())
+		newInboxCmd(), newGhostCmd(), newExperienceCmd(), newUpdateCmd(), newStatusCmd())
 	return root
 }
 
