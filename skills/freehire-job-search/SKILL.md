@@ -47,13 +47,43 @@ lowercase slugs (`go`, `react`, `kubernetes`) — do not invent facet values.
 ```bash
 freehire search "golang" --remote --region eu --seniority senior
 freehire search "data" --country BR --employment-type full_time
+freehire search "AI" --country IT --employment-type contract --exclude-skill python
 freehire search "backend" --facet source=greenhouse   # any facet via --facet key=value
 ```
 
-Named flags: `--remote --region --country --city --company --category --role
---seniority --employment-type --english-level --salary-min --visa` (each repeatable).
-`--facet key=value` reaches any other facet in the vocabulary. `--skills` here is a
-*filter* (jobs listing the skill). `--limit`/`--offset` page.
+Repeatable filter flags (pass again to OR more values): `--region --country --city
+--company --category --role --seniority --employment-type --english-level
+--exclude-skill --skills --facet`. Single-valued: `--remote` and `--visa` are
+toggles, `--salary-min` is one number. `--facet key=value` reaches any other facet
+in the vocabulary. `--skills` here is a *filter* (jobs listing the skill).
+`--limit`/`--offset` page.
+
+**Filtering things OUT.** `--exclude-skill python` drops jobs **tagged** with that
+skill — the way to say "contract work, but not the Python ones". Every other
+facet takes the same `_exclude` suffix through `--facet`, e.g. `--facet
+company_type_exclude=outstaff`.
+
+Tags come from a curated dictionary read off the description, so treat an
+exclusion as a *discovery* filter, not a fit test. Two ways it under-delivers: a
+mention the dictionary does not recognise leaves the job tagless and in the
+results, and excluding one language says nothing about the stack a job actually
+runs on — `--exclude-skill python` still returns roles whose real core is cloud,
+CI/CD or SQL.
+
+**Geography widens, it does not narrow.** `--region`, `--country` and `--city`
+are ONE OR-group: `--region eu --country IT` means "in Europe **or** in Italy" and
+returns everything `--region eu` alone would. To search one country, pass the
+country and **drop the region**. The three name a single concept — *where* — so
+picking two places reads as "either", which is what makes `--region eu --country BR`
+("Europe or Brazil") useful. There is no AND to switch on: `_mode=and` does not
+apply to geography.
+
+**Read the warnings on stderr.** A filter param the API does not recognize is
+ignored, not refused — the search still runs, just wider. The CLI prints
+`warning: ignored unknown filter "country" — did you mean "countries"?` to stderr
+(stdout stays clean JSON). `search`, `facets` and `market-fit` all report it.
+Never quote a number from a run that printed one: the count, the distribution or
+the coverage percentage answers a broader question than the one asked.
 
 `--json search` returns each hit's **full description as markdown**, so you can
 screen a result set in one call — reach for `job <slug>` only when you need a

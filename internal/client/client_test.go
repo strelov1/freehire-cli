@@ -33,11 +33,8 @@ func fakeAPI(t *testing.T) *httptest.Server {
 		if regions := q["regions"]; len(regions) != 2 || regions[0] != "eu" || regions[1] != "us" {
 			t.Errorf("regions = %v, want [eu us]", regions)
 		}
-		// Search always asks the agent endpoint for full descriptions, rendered
-		// as markdown rather than the stored HTML.
-		if q.Get("include_description") != "true" {
-			t.Errorf("include_description = %q, want true", q.Get("include_description"))
-		}
+		// The agent endpoint always returns full descriptions, so only the
+		// rendering is asked for — include_description was never read.
 		if q.Get("description_format") != "markdown" {
 			t.Errorf("description_format = %q, want markdown", q.Get("description_format"))
 		}
@@ -376,8 +373,8 @@ func TestClient_Coverage(t *testing.T) {
 	if gotQuery.Get("category") != "backend" || gotQuery.Get("countries") != "BR" {
 		t.Errorf("query facets = %v, want category=backend&countries=BR", gotQuery)
 	}
-	if !strings.Contains(string(data), `"coverage_percent":60`) {
-		t.Errorf("coverage data = %s", data)
+	if !strings.Contains(string(data.Data), `"coverage_percent":60`) {
+		t.Errorf("coverage data = %s", data.Data)
 	}
 }
 
@@ -404,8 +401,8 @@ func TestClient_Facets(t *testing.T) {
 	if gotQuery.Get("category") != "backend" {
 		t.Errorf("query = %v, want category=backend", gotQuery)
 	}
-	if !strings.Contains(string(data), `"total":1234`) || !strings.Contains(string(data), `"go":180`) {
-		t.Errorf("facets data = %s", data)
+	if !strings.Contains(string(data.Data), `"total":1234`) || !strings.Contains(string(data.Data), `"go":180`) {
+		t.Errorf("facets data = %s", data.Data)
 	}
 }
 

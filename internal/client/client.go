@@ -46,11 +46,34 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("api error %d", e.Status)
 }
 
-// Page is a slice of list results: the raw `data` array plus the total match
-// count from `meta`. Returned by Search and MyJobs.
+// IgnoredParam is a query param the API did not read, reported back in `meta`.
+// DidYouMean carries the real facet name when the sent one was only its
+// singular — the common miss, since most facets are plural.
+type IgnoredParam struct {
+	Param      string `json:"param"`
+	DidYouMean string `json:"did_you_mean"`
+}
+
+// Doc is a single-item result: the raw `data` object plus any params the API
+// ignored. The single-item sibling of Page — the filtered endpoints that answer
+// one object rather than a list report the same warning, and losing it on the
+// way through would leave a count or a percentage looking authoritative when it
+// answered a wider question than the caller asked.
+type Doc struct {
+	Data    json.RawMessage
+	Ignored []IgnoredParam
+}
+
+// Page is a slice of list results: the raw `data` array, the total match count
+// from `meta`, and any params the API ignored. Returned by Search and MyJobs.
+//
+// Ignored matters more than it looks: an unread filter does not fail the
+// request, it widens it, so the count comes back larger and reads as a real
+// answer. Callers surface it rather than dropping it.
 type Page struct {
-	Data  json.RawMessage
-	Total int
+	Data    json.RawMessage
+	Total   int
+	Ignored []IgnoredParam
 }
 
 // SearchParams are the inputs to a job search: query text, pagination, and
@@ -66,7 +89,8 @@ type SearchParams struct {
 type envelope struct {
 	Data json.RawMessage `json:"data"`
 	Meta struct {
-		Total int `json:"total"`
+		Total         int            `json:"total"`
+		IgnoredParams []IgnoredParam `json:"ignored_params"`
 	} `json:"meta"`
 	Error string `json:"error"`
 }
@@ -94,14 +118,17 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	q.Set("q", p.Query)
 	q.Set("limit", strconv.Itoa(p.Limit))
 	q.Set("offset", strconv.Itoa(p.Offset))
-	q.Set("semantic_ratio", "0") // keyword search, matching the web client
-	q.Set("include_description", "true")
+	// The endpoint always returns full descriptions, so only the rendering needs
+	// asking for. It used to also send semantic_ratio=0 and
+	// include_description=true; the first died with the hybrid index and the
+	// second was never read, and the API now reports unread params as warnings —
+	// so sending them would hand the user two they cannot act on.
 	q.Set("description_format", "markdown")
 	env, err := c.do(ctx, http.MethodGet, "/api/v1/agent/jobs/search?"+q.Encode(), nil)
 	if err != nil {
 		return Page{}, err
 	}
-	return Page{Data: env.Data, Total: env.Meta.Total}, nil
+	return Page{Data: env.Data, Total: env.Meta.Total, Ignored: env.Meta.IgnoredParams}, nil
 }
 
 // CoverageParams is a market-coverage query: Skills is the measured skill list
@@ -116,12 +143,12 @@ type CoverageParams struct {
 // (POST /market/coverage): how many open vacancies for the filter list at least
 // one of the skills, plus ranked skill gaps and the role's top in-demand skills.
 // One skill or many — a single-element Skills probes that skill's demand.
-func (c *Client) Coverage(ctx context.Context, p CoverageParams) (json.RawMessage, error) {
+func (c *Client) Coverage(ctx context.Context, p CoverageParams) (Doc, error) {
 	body, err := json.Marshal(struct {
 		Skills []string `json:"skills"`
 	}{Skills: p.Skills})
 	if err != nil {
-		return nil, err
+		return Doc{}, err
 	}
 	q := url.Values{}
 	for k, vs := range p.Facets {
@@ -134,13 +161,13 @@ func (c *Client) Coverage(ctx context.Context, p CoverageParams) (json.RawMessag
 		path += "?" + enc
 	}
 	env, err := c.do(ctx, http.MethodPost, path, bytes.NewReader(body))
-	return env.Data, err
+	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams}, err
 }
 
 // Facets returns the market's facet-value distributions under an optional filter
 // (GET /jobs/facets): each facet's live values with counts, plus numeric stats. It
 // is the vocabulary an agent reads to know which filter values and skills exist.
-func (c *Client) Facets(ctx context.Context, facets url.Values) (json.RawMessage, error) {
+func (c *Client) Facets(ctx context.Context, facets url.Values) (Doc, error) {
 	q := url.Values{}
 	for k, vs := range facets {
 		for _, v := range vs {
@@ -152,7 +179,7 @@ func (c *Client) Facets(ctx context.Context, facets url.Values) (json.RawMessage
 		path += "?" + enc
 	}
 	env, err := c.do(ctx, http.MethodGet, path, nil)
-	return env.Data, err
+	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams}, err
 }
 
 // Save bookmarks a job (POST /jobs/:slug/save).
