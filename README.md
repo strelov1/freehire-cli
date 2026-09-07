@@ -49,6 +49,10 @@ freehire cv list                                               # the tailored CV
 freehire cv context <cv-id>                                    # the fit analysis to reframe toward (missing_have vs missing_gap)
 freehire cv edit <cv-id> --set 'summary=…'                     # edit by path; a claim needs --evidence <atom-id>
 freehire cv render <cv-id> --out cv.pdf                        # download the ATS PDF
+freehire auto-apply status <job-slug>                          # where an attempt already queued on the site stands
+freehire auto-apply tailor <queue-id>                          # (re)start writing the CV for a queued attempt
+freehire auto-apply review <queue-id> --approve                # queue it for unattended submission
+freehire auto-apply review <queue-id> --decline                # park it for good
 freehire facets                                                # list every filter's live values + counts (what to filter by)
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
@@ -109,6 +113,17 @@ a key edits as the tailoring agent: the contact block is refused, and anything
 stating what you DID needs `--evidence <atom-id>` from the experience bank. The
 readiness score, the revision history and undo stay on the site — deliberately,
 so the agent cannot read or revert the measure of its own work.
+
+**Auto-apply.** Queuing a *new* attempt is cookie-only on freehire.me itself — a
+real application can go out, and the browser is the only place you can watch it
+happen and undo it, so there is no `auto-apply run` here and there will not be
+one. Once an attempt is queued from the site, `auto-apply status <job-slug>`
+shows where it stands (`tailoring` → `pending_review` → `approved`, or
+`blocked`/`declined`/`failed`) and gives you the queue id the other two take.
+`tailor <queue-id>` (re)starts writing the CV for it; when it reaches
+`pending_review`, `status` shows exactly what would be submitted, and `review
+<queue-id> --approve`/`--decline` records your decision — once only, the server
+refuses a second call.
 
 **Discovering values.** `freehire facets [filters]` lists every filter's live
 values with a vacancy count each (and the `skills` vocabulary), so you pass real
