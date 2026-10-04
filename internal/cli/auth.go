@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 
@@ -12,6 +13,7 @@ import (
 
 	"github.com/strelov1/freehire-cli/internal/client"
 	"github.com/strelov1/freehire-cli/internal/config"
+	"github.com/strelov1/freehire-cli/internal/oauthlogin"
 )
 
 func newAuthCmd() *cobra.Command {
@@ -23,22 +25,9 @@ func newAuthCmd() *cobra.Command {
 func newAuthLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Validate an API key and store it in ~/.freehire/creds.json",
+		Short: "Sign in via browser (OAuth) or an API key, storing a token in ~/.freehire/creds.json",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			token, _ := cmd.Flags().GetString("token")
-			token = strings.TrimSpace(token)
-			if token == "" {
-				fmt.Fprint(cmd.OutOrStdout(), "API key: ")
-				sc := bufio.NewScanner(cmd.InOrStdin())
-				if sc.Scan() {
-					token = strings.TrimSpace(sc.Text())
-				}
-			}
-			if token == "" {
-				return errors.New("no API key provided")
-			}
-
 			base := config.DefaultAPIURL
 			if v := os.Getenv(config.EnvAPIURL); v != "" {
 				base = v
@@ -47,10 +36,33 @@ func newAuthLoginCmd() *cobra.Command {
 				base = f
 			}
 
-			// Validate the key before storing it, so a bad key never lands in creds.
+			useOAuth, _ := cmd.Flags().GetBool("oauth")
+			var token string
+			if useOAuth {
+				t, err := oauthlogin.Login(cmd.Context(), http.DefaultClient, base, openBrowser, cmd.OutOrStdout())
+				if err != nil {
+					return fmt.Errorf("sign in: %w", err)
+				}
+				token = t
+			} else {
+				token, _ = cmd.Flags().GetString("token")
+				token = strings.TrimSpace(token)
+				if token == "" {
+					_, _ = fmt.Fprint(cmd.OutOrStdout(), "API key: ")
+					sc := bufio.NewScanner(cmd.InOrStdin())
+					if sc.Scan() {
+						token = strings.TrimSpace(sc.Text())
+					}
+				}
+				if token == "" {
+					return errors.New("no API key provided")
+				}
+			}
+
+			// Validate before storing, so a bad credential never lands in creds.
 			data, err := client.New(base, token, nil).Me(cmd.Context())
 			if err != nil {
-				return fmt.Errorf("validating key: %w", err)
+				return fmt.Errorf("validating credential: %w", err)
 			}
 			if err := config.Save(config.Creds{Token: token, APIURL: base}); err != nil {
 				return err
@@ -60,6 +72,7 @@ func newAuthLoginCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("token", "", "API key (fhk_…); prompted on stdin if omitted")
+	cmd.Flags().Bool("oauth", false, "sign in via browser instead of pasting an API key")
 	return cmd
 }
 
