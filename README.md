@@ -21,17 +21,24 @@ go install github.com/strelov1/freehire-cli/cmd/freehire@latest   # installs the
 
 ## Authenticate
 
-Create an API key in the web app (freehire.me → account menu → **API keys**),
-then:
-
 ```bash
-freehire auth login --token fhk_xxxxxxxx   # validates the key and stores it
+freehire auth login --oauth                # opens a browser to sign in — no key to paste or manage
+freehire auth login --token fhk_xxxxxxxx   # or: an API key from the web app (account menu → API keys)
 freehire auth status                       # Authenticated as you@example.com @ https://freehire.me
 freehire auth logout                       # removes ~/.freehire/creds.json
 ```
 
-`auth login` validates the key against the API before saving, so a bad key is
-never stored. Omit `--token` to be prompted on stdin.
+`--oauth` registers this CLI with freehire's OAuth 2.1 authorization server
+(freehire#3114), opens your browser to approve the connection, and stores the
+resulting token exactly like a pasted key — nothing else in this CLI, or in
+[freehire-mcp](https://github.com/strelov1/freehire-mcp) reading the same
+`~/.freehire/creds.json`, needs to know which method produced it. Revoke a
+browser-granted connection any time from the web app's **Connected devices**
+list, without touching an API key.
+
+`auth login` validates the credential against the API before saving, so a bad
+key or a failed sign-in is never stored. Omit `--token` to be prompted on
+stdin.
 
 ## Use
 
