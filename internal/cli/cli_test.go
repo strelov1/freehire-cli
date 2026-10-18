@@ -154,6 +154,33 @@ func TestSearchWithoutTokenRunsAnonymously(t *testing.T) {
 	}
 }
 
+func TestJobWithoutTokenRunsAnonymously(t *testing.T) {
+	// GET /jobs/:slug is public, like search: job must work with no token.
+	var hadAuth bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("/api/v1/jobs/go-dev", func(w http.ResponseWriter, r *http.Request) {
+		_, hadAuth = r.Header["Authorization"]
+		w.Write([]byte(`{"data":{"public_slug":"go-dev","title":"Go Dev","company":"Acme","company_slug":"acme","location":"Remote","url":"https://acme.example/jobs/1","description":"Write Go."}}`))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "")
+	t.Setenv("FREEHIRE_API_URL", "")
+
+	out, err := run(t, "job", "go-dev", "--api-url", srv.URL)
+	if err != nil {
+		t.Fatalf("anonymous job should not error: %v", err)
+	}
+	if !strings.Contains(out, "Go Dev") || !strings.Contains(out, "Write Go.") {
+		t.Errorf("job output = %q", out)
+	}
+	if hadAuth {
+		t.Error("anonymous job must not send an Authorization header")
+	}
+}
+
 func TestSearchFiltersMapToFacets(t *testing.T) {
 	var got url.Values
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

@@ -75,7 +75,7 @@ func newJobCmd() *cobra.Command {
 		Short: "Show a job's content by its slug",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c, _, err := authedClient(cmd)
+			c, _, err := publicClient(cmd)
 			if err != nil {
 				return err
 			}
