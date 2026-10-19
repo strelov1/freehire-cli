@@ -6,7 +6,7 @@ description: Use when orienting in the `freehire` CLI as a whole — installing 
 # The freehire CLI
 
 `freehire` is a single static binary over the [freehire.me](https://freehire.me)
-job API. It lets an agent search, filter, apply to and track IT jobs without a
+job API. It lets an agent search, filter, apply to and track jobs without a
 browser, authenticating with a personal API key. Every command supports `--json`
 for a raw, faithful API payload (pipe to `jq`).
 

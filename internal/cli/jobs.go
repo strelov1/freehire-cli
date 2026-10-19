@@ -16,7 +16,19 @@ func newSearchCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <query>",
 		Short: "Search jobs by keyword, with optional facet filters",
-		Args:  cobra.MinimumNArgs(1),
+		Long: `Search jobs by keyword, with optional facet filters.
+
+The query understands four operators:
+  "..."     every quoted word must match, in any order (not a contiguous phrase)
+  -word     exclude postings that match it
+  OR        uppercase, between terms: any alternative matches (at most 5)
+  title:    at the start of an alternative: match it in the title only
+
+Wrap the whole query in single quotes when it contains double quotes, or the
+shell strips them:
+
+  freehire search 'title:"product owner" -junior OR title:produktchef'`,
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, _, err := publicClient(cmd)
 			if err != nil {

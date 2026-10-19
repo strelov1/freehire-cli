@@ -1,5 +1,5 @@
 ---
-description: Search live IT vacancies on freehire and shortlist the ones worth applying to
+description: Search live vacancies on freehire and shortlist the ones worth applying to
 argument-hint: [what they are looking for, in their own words]
 allowed-tools: Bash(freehire:*)
 ---
