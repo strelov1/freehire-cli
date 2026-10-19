@@ -1,12 +1,12 @@
 ---
 name: freehire-job-search
-description: Use when finding IT jobs for someone — searching or filtering the freehire catalogue by keyword, region, seniority, skills, salary or company; reading a posting or a company's open roles; discovering what values a filter accepts; reading the saved job-search profile before asking someone what they want; handing over a job link freehire does not carry yet; or reading the "possibly inactive" signal on a posting. Covers profile, facets, search, job, company and contribute, all with machine-readable `--json` output.
+description: Use when finding jobs for someone — searching or filtering the freehire catalogue by keyword, region, seniority, skills, salary or company; reading a posting or a company's open roles; discovering what values a filter accepts; reading the saved job-search profile before asking someone what they want; handing over a job link freehire does not carry yet; or reading the "possibly inactive" signal on a posting. Covers profile, facets, search, job, company and contribute, all with machine-readable `--json` output.
 ---
 
 # Finding jobs on freehire
 
 `freehire` is a single static binary over the [freehire.me](https://freehire.me)
-job API. It searches, filters and opens IT jobs without a browser. Every command
+job API. It searches, filters and opens jobs without a browser. Every command
 supports `--json` for a raw, faithful API payload (pipe to `jq`).
 
 Needs a key: `freehire auth login --token fhk_…` (or `FREEHIRE_TOKEN`). A 401
@@ -50,6 +50,29 @@ freehire search "data" --country BR --employment-type full_time
 freehire search "AI" --country IT --employment-type contract --exclude-skill python
 freehire search "backend" --facet source=greenhouse   # any facet via --facet key=value
 ```
+
+**Query syntax.** The keyword argument is more than a bag of words:
+
+| Write | Means |
+|---|---|
+| `"product owner"` | every quoted word must match, in any order (not a contiguous phrase) |
+| `-junior` | exclude postings that match it |
+| `produktchef OR "product owner"` | any alternative matches; uppercase `OR`, at most 5 alternatives, merged and deduplicated server-side |
+| `title:"product owner"` | at the start of an alternative: match it in the title only, so a posting that merely mentions the role in its body is left out |
+
+```bash
+freehire search 'title:"product owner" -junior OR title:produktchef'
+freehire search 'golang OR rust' --remote
+```
+
+- **Single-quote the whole query** whenever it has double quotes. The shell
+  strips unprotected quotes: `freehire search title:"product owner"` sends
+  `title:product owner` and matched 59,406 postings instead of 6,028.
+- **Prefer one `OR` call to one call per synonym.** Paging, the total and the
+  counts already describe the merged set.
+- **Plain words are neither AND nor OR.** The first ones are required and
+  trailing ones are dropped when too few match, so word order changes the
+  result. Quote the words that must all appear.
 
 Repeatable filter flags (pass again to OR more values): `--region --country --city
 --company --category --role --seniority --employment-type --english-level
