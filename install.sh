@@ -41,4 +41,4 @@ fi
 trap - EXIT
 
 echo "Installed ${BIN} → ${target}"
-echo "Next: ${BIN} auth login --token fhk_…    (create a key at https://freehire.me → API keys)"
+echo "Next: ${BIN} auth login    (opens your browser to sign in)"

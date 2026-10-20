@@ -48,14 +48,15 @@ func listenForCallback() (*callbackServer, error) {
 
 func (cb *callbackServer) handle(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
+	errorParam := q.Get("error")
 	select {
-	case cb.result <- callbackResult{code: q.Get("code"), state: q.Get("state"), errorParam: q.Get("error")}:
+	case cb.result <- callbackResult{code: q.Get("code"), state: q.Get("state"), errorParam: errorParam}:
 	default:
 		// A second hit (a reload, a retry) after the first is already queued —
 		// the one the login attempt is waiting for was already delivered.
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	_, _ = w.Write([]byte(`<!doctype html><html><body>You can close this tab and return to the terminal.</body></html>`))
+	_, _ = w.Write([]byte(callbackPage(errorParam)))
 }
 
 // wait blocks until the browser visits the callback or ctx is done, whichever
