@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -88,5 +89,18 @@ func TestLoginMethodFor(t *testing.T) {
 		if got := loginMethodFor(tc.oauth, tc.hasToken, tc.interactive); got != tc.want {
 			t.Errorf("%s: got %v, want %v", tc.name, got, tc.want)
 		}
+	}
+}
+
+// /dev/null is a character device but not a terminal; treating it as one sent
+// a CI job run with </dev/null to wait on a browser.
+func TestIsTerminal_DevNullIsNotATerminal(t *testing.T) {
+	f, err := os.Open(os.DevNull)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = f.Close() }()
+	if isTerminal(f) {
+		t.Error("isTerminal(/dev/null) = true")
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/strelov1/freehire-cli/internal/client"
 	"github.com/strelov1/freehire-cli/internal/config"
@@ -101,15 +102,13 @@ func loginMethodFor(oauthFlag, hasToken, interactive bool) loginMethod {
 	}
 }
 
-// isTerminal reports whether r is a character device — a person typing, not a
-// pipe, a file or a test's buffer.
+// isTerminal reports whether r is a terminal — a person typing, not a pipe, a
+// file or a test's buffer. It asks the terminal driver rather than checking for
+// a character device: /dev/null is one too, and a CI job run with </dev/null
+// would otherwise open a browser and wait on it.
 func isTerminal(r io.Reader) bool {
 	f, ok := r.(*os.File)
-	if !ok {
-		return false
-	}
-	info, err := f.Stat()
-	return err == nil && info.Mode()&os.ModeCharDevice != 0
+	return ok && term.IsTerminal(int(f.Fd()))
 }
 
 func newAuthStatusCmd() *cobra.Command {
