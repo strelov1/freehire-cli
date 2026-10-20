@@ -72,10 +72,10 @@ type profileView struct {
 		TotalYears int      `json:"total_years"`
 		Skills     []string `json:"skills"`
 		Experience []struct {
-			Title   string `json:"title"`
-			Company string `json:"company"`
-			Start   string `json:"start"`
-			End     string `json:"end"`
+			Title   string     `json:"title"`
+			Company string     `json:"company"`
+			Start   periodDate `json:"start"`
+			End     periodDate `json:"end"`
 		} `json:"experience"`
 	} `json:"cv"`
 }
@@ -126,7 +126,7 @@ func printProfile(cmd *cobra.Command, v profileView, empty bool) {
 			fmt.Fprintf(out, "CV skills:        %s\n", join(cv.Skills))
 		}
 		for _, e := range cv.Experience {
-			when := strings.Trim(e.Start+"–"+e.End, "–")
+			when := strings.Trim(string(e.Start)+"–"+string(e.End), "–")
 			fmt.Fprintf(out, "  %-34s %s\n", trunc(strings.Trim(e.Title+" at "+e.Company, " at "), 34), when)
 		}
 	}
