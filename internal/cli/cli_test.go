@@ -506,3 +506,22 @@ func TestApplyOnADate(t *testing.T) {
 		t.Errorf("output = %q, want it to name the day", out)
 	}
 }
+
+// A script that pipes its key keeps working now that a bare `auth login` at a
+// terminal opens the browser instead of prompting.
+func TestAuthLoginReadsAPipedKey(t *testing.T) {
+	srv := fakeAPI(t)
+	t.Setenv("HOME", t.TempDir())
+	t.Setenv("FREEHIRE_TOKEN", "")
+	t.Setenv("FREEHIRE_API_URL", "")
+
+	if _, err := runIn(t, "good\n", "auth", "login", "--api-url", srv.URL); err != nil {
+		t.Fatalf("login: %v", err)
+	}
+	if got, _ := config.Load(); got.Token != "good" {
+		t.Errorf("stored creds = %+v, want the piped key", got)
+	}
+	if _, err := runIn(t, "", "auth", "login", "--api-url", srv.URL); err == nil {
+		t.Error("an empty pipe must fail rather than wait on a browser")
+	}
+}

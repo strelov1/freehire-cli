@@ -2,7 +2,9 @@ package oauthlogin
 
 import (
 	"context"
+	"io"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,5 +76,29 @@ func TestCallbackServer_RedirectURIIsLoopback(t *testing.T) {
 
 	if cb.redirectURI == "" {
 		t.Fatal("redirectURI is empty")
+	}
+}
+
+// A refusal must not land on a page telling the person sign-in is finishing.
+func TestCallbackServer_PageMatchesTheOutcome(t *testing.T) {
+	cb, err := listenForCallback()
+	if err != nil {
+		t.Fatalf("listenForCallback: %v", err)
+	}
+	defer func() { _ = cb.Close() }()
+
+	for query, want := range map[string]string{
+		"?code=c&state=s":              "Return to the terminal",
+		"?error=access_denied&state=s": "Connection cancelled",
+	} {
+		resp, err := http.Get(cb.redirectURI + query)
+		if err != nil {
+			t.Fatalf("GET %s: %v", query, err)
+		}
+		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+		if !strings.Contains(string(body), want) {
+			t.Errorf("GET %s: page lacks %q", query, want)
+		}
 	}
 }

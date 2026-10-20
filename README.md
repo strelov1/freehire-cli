@@ -22,13 +22,13 @@ go install github.com/strelov1/freehire-cli/cmd/freehire@latest   # installs the
 ## Authenticate
 
 ```bash
-freehire auth login --oauth                # opens a browser to sign in — no key to paste or manage
+freehire auth login                        # opens a browser to sign in — no key to paste or manage
 freehire auth login --token fhk_xxxxxxxx   # or: an API key from the web app (account menu → API keys)
 freehire auth status                       # Authenticated as you@example.com @ https://freehire.me
 freehire auth logout                       # removes ~/.freehire/creds.json
 ```
 
-`--oauth` registers this CLI with freehire's OAuth 2.1 authorization server
+Run in a terminal, `auth login` registers this CLI with freehire's OAuth 2.1 authorization server
 (freehire#3114), opens your browser to approve the connection, and stores the
 resulting token exactly like a pasted key — nothing else in this CLI, or in
 [freehire-mcp](https://github.com/strelov1/freehire-mcp) reading the same
@@ -37,8 +37,8 @@ browser-granted connection any time from the web app's **Connected devices**
 list, without touching an API key.
 
 `auth login` validates the credential against the API before saving, so a bad
-key or a failed sign-in is never stored. Omit `--token` to be prompted on
-stdin.
+key or a failed sign-in is never stored. A script without a browser passes
+`--token`, or pipes the key on stdin (`echo "$KEY" | freehire auth login`).
 
 ## Use
 

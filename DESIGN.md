@@ -76,7 +76,8 @@ param in the API vocabulary. `--skills` is intentionally NOT shared: it filters 
 ## Commands (`cli`, cobra)
 
 - Global flags: `--json` (raw API data), `--api-url` (override).
-- `freehire auth login [--token fhk_…]` — token via flag or stdin prompt;
+- `freehire auth login [--token fhk_…]` — browser sign-in at a terminal, else
+  the token via flag or piped stdin;
   validates with `Me`; writes creds; prints `Logged in as <email>`.
   `auth status` — `Me` → `Authenticated as <email> @ <api_url>` or not.
   `auth logout` — removes creds.

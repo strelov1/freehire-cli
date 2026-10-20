@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -25,7 +26,7 @@ func newAuthCmd() *cobra.Command {
 func newAuthLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login",
-		Short: "Sign in via browser (OAuth) or an API key, storing a token in ~/.freehire/creds.json",
+		Short: "Sign in via the browser, or with --token, storing a token in ~/.freehire/creds.json",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			base := config.DefaultAPIURL
@@ -37,25 +38,22 @@ func newAuthLoginCmd() *cobra.Command {
 			}
 
 			useOAuth, _ := cmd.Flags().GetBool("oauth")
-			var token string
-			if useOAuth {
+			token, _ := cmd.Flags().GetString("token")
+			token = strings.TrimSpace(token)
+			switch loginMethodFor(useOAuth, token != "", isTerminal(cmd.InOrStdin())) {
+			case loginViaBrowser:
 				t, err := oauthlogin.Login(cmd.Context(), http.DefaultClient, base, openBrowser, cmd.OutOrStdout())
 				if err != nil {
 					return fmt.Errorf("sign in: %w", err)
 				}
 				token = t
-			} else {
-				token, _ = cmd.Flags().GetString("token")
-				token = strings.TrimSpace(token)
-				if token == "" {
-					_, _ = fmt.Fprint(cmd.OutOrStdout(), "API key: ")
-					sc := bufio.NewScanner(cmd.InOrStdin())
-					if sc.Scan() {
-						token = strings.TrimSpace(sc.Text())
-					}
+			case loginViaPipedKey:
+				sc := bufio.NewScanner(cmd.InOrStdin())
+				if sc.Scan() {
+					token = strings.TrimSpace(sc.Text())
 				}
 				if token == "" {
-					return errors.New("no API key provided")
+					return errors.New("no API key on stdin: pass --token fhk_…, or run in a terminal to sign in via the browser")
 				}
 			}
 
@@ -71,9 +69,47 @@ func newAuthLoginCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().String("token", "", "API key (fhk_…); prompted on stdin if omitted")
-	cmd.Flags().Bool("oauth", false, "sign in via browser instead of pasting an API key")
+	cmd.Flags().String("token", "", "API key (fhk_…); without it a terminal signs in via the browser, and piped stdin is read as the key")
+	// --oauth is the default now; kept so the instructions that spelled it out still run.
+	cmd.Flags().Bool("oauth", false, "sign in via the browser (the default in a terminal)")
+	_ = cmd.Flags().MarkHidden("oauth")
 	return cmd
+}
+
+type loginMethod int
+
+const (
+	loginViaToken loginMethod = iota
+	loginViaBrowser
+	loginViaPipedKey
+)
+
+// loginMethodFor picks how `auth login` obtains a credential. A person at a
+// terminal gets the browser sign-in with nothing to paste; a script keeps the
+// two ways it always had — --token, or the key piped on stdin — and is never
+// sent to wait on a browser nobody will open.
+func loginMethodFor(oauthFlag, hasToken, interactive bool) loginMethod {
+	switch {
+	case oauthFlag:
+		return loginViaBrowser
+	case hasToken:
+		return loginViaToken
+	case interactive:
+		return loginViaBrowser
+	default:
+		return loginViaPipedKey
+	}
+}
+
+// isTerminal reports whether r is a character device — a person typing, not a
+// pipe, a file or a test's buffer.
+func isTerminal(r io.Reader) bool {
+	f, ok := r.(*os.File)
+	if !ok {
+		return false
+	}
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
 
 func newAuthStatusCmd() *cobra.Command {
