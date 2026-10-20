@@ -2,8 +2,12 @@
 
 A small Go CLI over the [freehire](https://freehire.me) job API — built so an
 **agent** (or a human) can search, open, and apply to jobs from the terminal,
-without a browser. Authenticate once with a personal API key; the key is stored
-in `~/.freehire/creds.json`.
+without a browser. Sign in once — `freehire auth login` opens your browser — and
+the token is stored in `~/.freehire/creds.json`.
+
+![Claude Code running freehire search and freehire job, then picking three senior remote Go backend roles in Europe](docs/assets/claude-code-demo.gif)
+
+*A real Claude Code session driving the CLI against the live catalogue, sped up 1.5×.*
 
 ## Install
 
