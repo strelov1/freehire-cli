@@ -68,8 +68,8 @@ type bankEmployment struct {
 	Name     string     `json:"name"`
 	Role     string     `json:"role"`
 	Location string     `json:"location"`
-	Start    string     `json:"start"`
-	End      string     `json:"end"`
+	Start    periodDate `json:"start"`
+	End      periodDate `json:"end"`
 	Current  bool       `json:"current"`
 	Summary  string     `json:"summary"`
 	Link     string     `json:"link"`
@@ -311,8 +311,8 @@ func newExperienceEmploymentsUpdateCmd() *cobra.Command {
 				Company:  overlayString(cmd, "company", cur.label()),
 				Role:     overlayString(cmd, "role", cur.Role),
 				Location: overlayString(cmd, "location", cur.Location),
-				Start:    overlayString(cmd, "start", cur.Start),
-				End:      overlayString(cmd, "end", cur.End),
+				Start:    overlayString(cmd, "start", string(cur.Start)),
+				End:      overlayString(cmd, "end", string(cur.End)),
 				Current:  current,
 				Summary:  overlayString(cmd, "summary", cur.Summary),
 				Stack:    cur.Stack,
