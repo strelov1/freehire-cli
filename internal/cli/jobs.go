@@ -111,7 +111,7 @@ func newJobCmd() *cobra.Command {
 			if lines := j.Ghost.lines(); len(lines) > 0 {
 				fmt.Fprintf(out, "\n%s\n", strings.Join(lines, "\n"))
 			}
-			fmt.Fprintf(out, "\n%s\n", j.Description)
+			fmt.Fprintf(out, "\n%s\n", descriptionText(j.Description))
 			return nil
 		},
 	}
