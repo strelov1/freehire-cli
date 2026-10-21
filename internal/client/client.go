@@ -74,6 +74,9 @@ type Page struct {
 	Data    json.RawMessage
 	Total   int
 	Ignored []IgnoredParam
+	// Semantic is what became of SearchParams.Semantic: "applied", or "unavailable"
+	// when the API answered with keyword matches only. Empty when not asked.
+	Semantic string
 }
 
 // SearchParams are the inputs to a job search: query text, pagination, and
@@ -83,6 +86,8 @@ type SearchParams struct {
 	Limit  int
 	Offset int
 	Facets url.Values
+	// Semantic also matches postings that describe the query in other words.
+	Semantic bool
 }
 
 // envelope is the shared API response wrapper: {data, meta, error}.
@@ -91,6 +96,7 @@ type envelope struct {
 	Meta struct {
 		Total         int            `json:"total"`
 		IgnoredParams []IgnoredParam `json:"ignored_params"`
+		Semantic      string         `json:"semantic"`
 	} `json:"meta"`
 	Error string `json:"error"`
 }
@@ -132,11 +138,14 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	// second was never read, and the API now reports unread params as warnings —
 	// so sending them would hand the user two they cannot act on.
 	q.Set("description_format", "markdown")
+	if p.Semantic {
+		q.Set("semantic", "true")
+	}
 	env, err := c.do(ctx, http.MethodGet, "/api/v1/agent/jobs/search?"+q.Encode(), nil)
 	if err != nil {
 		return Page{}, err
 	}
-	return Page{Data: env.Data, Total: env.Meta.Total, Ignored: env.Meta.IgnoredParams}, nil
+	return Page{Data: env.Data, Total: env.Meta.Total, Ignored: env.Meta.IgnoredParams, Semantic: env.Meta.Semantic}, nil
 }
 
 // CoverageParams is a market-coverage query: Skills is the measured skill list

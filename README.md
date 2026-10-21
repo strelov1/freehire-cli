@@ -68,6 +68,7 @@ freehire facets                                                # list every filt
 freehire search "golang"                                       # list matching jobs (title · company · location · slug)
 freehire search "backend" --remote --region eu --company acme  # facet filters (repeatable: --region, --company)
 freehire search "data" --country BR --employment-type full_time --facet source=greenhouse  # any facet via --facet key=value
+freehire search "help kids learn to read" --semantic            # also match postings that say it in other words
 freehire market-fit --skills go,docker,react --category backend  # how much of the market your skills cover (+ gaps)
 freehire market-fit --skills go --country BR                    # one skill probes that skill's demand under the filter
 freehire job <slug>                                            # show a job's full content (incl. posting URL + company slug)

@@ -49,6 +49,7 @@ freehire search "golang" --remote --region eu --seniority senior
 freehire search "data" --country BR --employment-type full_time
 freehire search "AI" --country IT --employment-type contract --exclude-skill python
 freehire search "backend" --facet source=greenhouse   # any facet via --facet key=value
+freehire search "keep our payment systems secure" --semantic   # match by meaning, not only words
 ```
 
 **Query syntax.** The keyword argument is more than a bag of words:
@@ -73,6 +74,11 @@ freehire search 'golang OR rust' --remote
 - **Plain words are neither AND nor OR.** The first ones are required and
   trailing ones are dropped when too few match, so word order changes the
   result. Quote the words that must all appear.
+- **`--semantic` when the need is described rather than named.** "keep our
+  payment systems secure" has no job title in it; with `--semantic` it also
+  reaches postings that say the same thing in other words. It covers technical
+  roles only — elsewhere the keyword matches answer. A stderr warning
+  `semantic search unavailable` means the results are keyword-only.
 
 Repeatable filter flags (pass again to OR more values): `--region --country --city
 --company --category --role --seniority --employment-type --english-level
