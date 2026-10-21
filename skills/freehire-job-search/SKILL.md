@@ -76,8 +76,10 @@ freehire search 'golang OR rust' --remote
   result. Quote the words that must all appear.
 - **`--semantic` when the need is described rather than named.** "keep our
   payment systems secure" has no job title in it; with `--semantic` it also
-  reaches postings that say the same thing in other words. It covers technical
-  roles only — elsewhere the keyword matches answer. A stderr warning
+  reaches postings that say the same thing in other words. **Leave it off for a
+  job title** ("react developer") **or a non-technical role** ("nurse night
+  shift"): there it measurably does worse than plain keywords, because only
+  technical postings carry the vectors it matches on. A stderr warning
   `semantic search unavailable` means the results are keyword-only.
 
 Repeatable filter flags (pass again to OR more values): `--region --country --city

@@ -33,8 +33,10 @@ shell strips them:
 
   freehire search "help kids learn to read" --semantic
 
-Meaning-based matching covers technical roles; elsewhere the keyword matches
-answer. When it cannot run, the results are keyword-only and a warning says so.`,
+Use it for a need described in words. Leave it off for a job title
+("react developer") or a non-technical role: meaning-based matching covers
+technical roles only, and there plain keywords answer better. When it cannot
+run, the results are keyword-only and a warning says so.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, _, err := publicClient(cmd)
@@ -96,7 +98,7 @@ answer. When it cannot run, the results are keyword-only and a warning says so.`
 	}
 	cmd.Flags().Int("limit", 20, "maximum results")
 	cmd.Flags().Int("offset", 0, "results offset for paging")
-	cmd.Flags().Bool("semantic", false, "also match postings that describe the query in other words")
+	cmd.Flags().Bool("semantic", false, "also match postings that describe the query in other words (for a need described in words, not a job title)")
 	addFacetFlags(cmd)
 	cmd.Flags().StringArray("skills", nil, "filter by skill, e.g. go, react (repeatable)")
 	return cmd
