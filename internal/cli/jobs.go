@@ -82,7 +82,15 @@ answer. When it cannot run, the results are keyword-only and a warning says so.`
 				fmt.Fprintf(out, "%-40s  %-20s  %-16s  %s\n",
 					trunc(r.Title, 40), trunc(r.Company, 20), trunc(r.Location, 16), r.PublicSlug)
 			}
-			fmt.Fprintf(out, "\n%d of %d shown\n", len(rows), res.Total)
+			// A semantic answer's total is only "at least", so it is not printed as a count.
+			switch {
+			case !res.TotalIsLowerBound:
+				fmt.Fprintf(out, "\n%d of %d shown\n", len(rows), res.Total)
+			case res.Total > offset+len(rows):
+				fmt.Fprintf(out, "\n%d shown, more available\n", len(rows))
+			default:
+				fmt.Fprintf(out, "\n%d shown\n", len(rows))
+			}
 			return nil
 		},
 	}

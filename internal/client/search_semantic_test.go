@@ -38,6 +38,22 @@ func TestSearch_SemanticIsSentOnlyWhenAsked(t *testing.T) {
 	}
 }
 
+func TestSearch_SurfacesALowerBoundTotal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"data":[],"meta":{"total":21,"semantic":"applied","total_is_lower_bound":true}}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "", srv.Client())
+
+	page, err := c.Search(context.Background(), SearchParams{Query: "go", Limit: 20, Semantic: true})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if page.Total != 21 || !page.TotalIsLowerBound {
+		t.Errorf("total=%d lowerBound=%v, want 21 marked as a lower bound", page.Total, page.TotalIsLowerBound)
+	}
+}
+
 func TestSearch_SurfacesWhatBecameOfSemantic(t *testing.T) {
 	// "unavailable" means the answer is keyword-only. The caller must be able to tell,
 	// or a fallback reads as a meaning-based result.
