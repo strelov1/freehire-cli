@@ -27,7 +27,14 @@ The query understands four operators:
 Wrap the whole query in single quotes when it contains double quotes, or the
 shell strips them:
 
-  freehire search 'title:"product owner" -junior OR title:produktchef'`,
+  freehire search 'title:"product owner" -junior OR title:produktchef'
+
+--semantic also matches postings that describe the query in other words:
+
+  freehire search "help kids learn to read" --semantic
+
+Meaning-based matching covers technical roles; elsewhere the keyword matches
+answer. When it cannot run, the results are keyword-only and a warning says so.`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, _, err := publicClient(cmd)
@@ -36,6 +43,7 @@ shell strips them:
 			}
 			limit, _ := cmd.Flags().GetInt("limit")
 			offset, _ := cmd.Flags().GetInt("offset")
+			semantic, _ := cmd.Flags().GetBool("semantic")
 
 			facets, err := facetsFromFlags(cmd)
 			if err != nil {
@@ -48,15 +56,19 @@ shell strips them:
 			}
 
 			res, err := c.Search(cmd.Context(), client.SearchParams{
-				Query:  strings.Join(args, " "),
-				Limit:  limit,
-				Offset: offset,
-				Facets: facets,
+				Query:    strings.Join(args, " "),
+				Limit:    limit,
+				Offset:   offset,
+				Facets:   facets,
+				Semantic: semantic,
 			})
 			if err != nil {
 				return err
 			}
 			warnIgnored(cmd, res.Ignored)
+			if res.Semantic == "unavailable" {
+				fmt.Fprintln(cmd.ErrOrStderr(), "warning: semantic search unavailable — showing keyword matches only")
+			}
 			if wantJSON(cmd) {
 				printJSON(cmd, res.Data)
 				return nil
@@ -76,6 +88,7 @@ shell strips them:
 	}
 	cmd.Flags().Int("limit", 20, "maximum results")
 	cmd.Flags().Int("offset", 0, "results offset for paging")
+	cmd.Flags().Bool("semantic", false, "also match postings that describe the query in other words")
 	addFacetFlags(cmd)
 	cmd.Flags().StringArray("skills", nil, "filter by skill, e.g. go, react (repeatable)")
 	return cmd
