@@ -77,6 +77,9 @@ type Page struct {
 	// Semantic is what became of SearchParams.Semantic: "applied", or "unavailable"
 	// when the API answered with keyword matches only. Empty when not asked.
 	Semantic string
+	// TotalIsLowerBound: Total is "at least this many" (a semantic answer has no count),
+	// and exceeds the rows seen so far only when a next page exists.
+	TotalIsLowerBound bool
 }
 
 // SearchParams are the inputs to a job search: query text, pagination, and
@@ -97,6 +100,8 @@ type envelope struct {
 		Total         int            `json:"total"`
 		IgnoredParams []IgnoredParam `json:"ignored_params"`
 		Semantic      string         `json:"semantic"`
+		// TotalIsLowerBound is meta.total_is_lower_bound.
+		TotalIsLowerBound bool `json:"total_is_lower_bound"`
 	} `json:"meta"`
 	Error string `json:"error"`
 }
@@ -145,7 +150,10 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	if err != nil {
 		return Page{}, err
 	}
-	return Page{Data: env.Data, Total: env.Meta.Total, Ignored: env.Meta.IgnoredParams, Semantic: env.Meta.Semantic}, nil
+	return Page{
+		Data: env.Data, Total: env.Meta.Total, Ignored: env.Meta.IgnoredParams,
+		Semantic: env.Meta.Semantic, TotalIsLowerBound: env.Meta.TotalIsLowerBound,
+	}, nil
 }
 
 // CoverageParams is a market-coverage query: Skills is the measured skill list

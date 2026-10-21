@@ -56,3 +56,26 @@ func TestSearch_WarnsWhenSemanticFellBackToKeywords(t *testing.T) {
 		t.Errorf("stdout is not the JSON payload alone: %v (%q)", err, stdout)
 	}
 }
+
+// A semantic answer's total is "at least", so the footer must not print "N of M".
+func TestSearch_SemanticFooterDoesNotClaimACount(t *testing.T) {
+	for _, tc := range []struct{ total, want string }{
+		{"2", "1 shown, more available"},
+		{"1", "1 shown\n"},
+	} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Write([]byte(`{"data":[{"public_slug":"x","title":"X","company":"Acme"}],` +
+				`"meta":{"total":` + tc.total + `,"semantic":"applied","total_is_lower_bound":true}}`))
+		}))
+		t.Setenv("FREEHIRE_API_URL", srv.URL)
+
+		stdout, _, err := runSplit(t, "search", "payments", "--semantic", "--limit", "1")
+		srv.Close()
+		if err != nil {
+			t.Fatalf("search: %v", err)
+		}
+		if !strings.Contains(stdout, tc.want) || strings.Contains(stdout, " of ") {
+			t.Errorf("total %s: stdout = %q, want %q and no \"of\"", tc.total, stdout, tc.want)
+		}
+	}
+}
