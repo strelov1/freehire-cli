@@ -413,22 +413,46 @@ func (c *Client) RejectSubmission(ctx context.Context, id int64, reason string) 
 	return env.Data, err
 }
 
+// UserAgent names this CLI to the API, so its requests are told apart from every
+// other Go program's in the server and edge logs. The cli package appends the
+// release version at startup.
+var UserAgent = "freehire-cli/dev"
+
+// signedInDoor is the API's second address for its whole /api/v1 surface, open only
+// to a caller holding a credential: /api/v1/me/api/<rest> is served as /api/v1/<rest>.
+// The edge challenges traffic from hosting and VPN networks — a challenge a CLI
+// cannot solve — and lets /api/v1/me/ through, because nothing there answers a
+// caller without one.
+const signedInDoor = "/api/v1/me/api"
+
 func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (envelope, error) {
-	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
-	if err != nil {
-		return envelope{}, err
-	}
-	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
-	}
-	req.Header.Set("Accept", "application/json")
+	// Read once: a challenged request is sent a second time.
+	var payload []byte
 	if body != nil {
-		req.Header.Set("Content-Type", "application/json")
+		b, err := io.ReadAll(body)
+		if err != nil {
+			return envelope{}, err
+		}
+		payload = b
 	}
 
-	resp, err := c.http.Do(req)
+	resp, err := c.send(ctx, method, path, payload)
 	if err != nil {
 		return envelope{}, err
+	}
+	if edgeChallenged(resp) {
+		resp.Body.Close()
+		door, ok := c.doorPath(path)
+		if !ok {
+			msg := "blocked by the network edge, which challenges VPN and hosting networks: retry off the VPN"
+			if c.token == "" {
+				msg += ", or sign in with `freehire auth login` (signed-in requests go around it)"
+			}
+			return envelope{}, &APIError{Status: resp.StatusCode, Message: msg}
+		}
+		if resp, err = c.send(ctx, method, door, payload); err != nil {
+			return envelope{}, err
+		}
 	}
 	defer resp.Body.Close()
 
@@ -449,6 +473,42 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (e
 		return envelope{}, &APIError{Status: resp.StatusCode, Message: env.Error}
 	}
 	return env, nil
+}
+
+// send makes one request; a nil payload sends no body.
+func (c *Client) send(ctx context.Context, method, path string, payload []byte) (*http.Response, error) {
+	var body io.Reader
+	if payload != nil {
+		body = bytes.NewReader(payload)
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	if err != nil {
+		return nil, err
+	}
+	if c.token != "" {
+		req.Header.Set("Authorization", "Bearer "+c.token)
+	}
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", UserAgent)
+	if payload != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	return c.http.Do(req)
+}
+
+// edgeChallenged reports a Cloudflare challenge: a 403 the API never produced.
+func edgeChallenged(resp *http.Response) bool {
+	return resp.StatusCode == http.StatusForbidden && resp.Header.Get("Cf-Mitigated") == "challenge"
+}
+
+// doorPath is path through the signed-in door. False without a credential (the door
+// refuses anonymous callers) and for a path already under /api/v1/me/, where the
+// edge challenge is not something another address can get around.
+func (c *Client) doorPath(path string) (string, bool) {
+	if c.token == "" || !strings.HasPrefix(path, "/api/v1/") || strings.HasPrefix(path, "/api/v1/me/") {
+		return "", false
+	}
+	return signedInDoor + strings.TrimPrefix(path, "/api/v1"), true
 }
 
 // GetProfile reads the caller's saved job-search profile: their specializations,
