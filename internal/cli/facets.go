@@ -58,8 +58,10 @@ func addFacetFlags(cmd *cobra.Command) {
 // stderr, not stdout: --json output is piped into jq or an agent's parser, and a
 // warning mixed into it would break the parse. Staying silent instead is worse
 // than either — an unread filter widens the result set rather than failing the
-// request, and an unknown value (--skills golangg) narrows it to nothing, so the
+// request, and an unrecognised value usually narrows it to nothing (--skills
+// golangg) — though not always (a misspelt boolean still reads as one) — so the
 // caller gets a wronger answer with nothing to show that anything went astray.
+// The warning names the value without claiming what it did to the count.
 func warnIgnored(cmd *cobra.Command, params []client.IgnoredParam, values client.IgnoredValues) {
 	for _, p := range params {
 		hint := ""
@@ -75,7 +77,7 @@ func warnIgnored(cmd *cobra.Command, params []client.IgnoredParam, values client
 	sort.Strings(filters)
 	for _, f := range filters {
 		for _, v := range values[f] {
-			fmt.Fprintf(cmd.ErrOrStderr(), "warning: unknown %s value %q matches no posting — see `freehire facets`\n", f, v)
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: unrecognised %s value %q — results may not be what you meant; see `freehire facets`\n", f, v)
 		}
 	}
 }

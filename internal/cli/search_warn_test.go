@@ -71,8 +71,8 @@ func TestSearch_QuietWhenNothingIgnored(t *testing.T) {
 }
 
 func TestSearch_WarnsOnIgnoredValues(t *testing.T) {
-	// A known filter carrying an unknown value narrows to nothing: without the
-	// warning, a typo (--skills golangg) reads as an empty market.
+	// A known filter carrying an unknown value usually narrows to nothing:
+	// without the warning, a typo (--skills golangg) reads as an empty market.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte(`{"data":[],"meta":{"total":0,"ignored_values":{"skills":["golangg"],"work_mode":["foo"]}}}`))
 	}))

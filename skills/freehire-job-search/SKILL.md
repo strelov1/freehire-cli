@@ -112,9 +112,10 @@ apply to geography.
 **Read the warnings on stderr.** A filter param the API does not recognize is
 ignored, not refused — the search still runs, just wider. The CLI prints
 `warning: ignored unknown filter "country" — did you mean "countries"?` to stderr
-(stdout stays clean JSON). A known filter given an unknown value is the opposite
-trap — it narrows to nothing, so a typo reads as an empty market — and prints
-`warning: unknown skills value "golangg" matches no posting`. Skill aliases
+(stdout stays clean JSON). A known filter given a value outside its vocabulary
+(including an `_exclude` value) prints
+`warning: unrecognised skills value "golangg" — results may not be what you meant`.
+Usually it narrows to nothing, so a typo reads as an empty market. Skill aliases
 (`golang`) resolve on their own; check `freehire facets` for the spelling the
 warning rejected. `search`, `facets` and `market-fit` all report both.
 Never quote a number from a run that printed one: the count, the distribution or
