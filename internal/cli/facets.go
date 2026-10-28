@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -51,20 +52,33 @@ func addFacetFlags(cmd *cobra.Command) {
 	cmd.Flags().StringArray("facet", nil, "arbitrary facet as key=value, e.g. --facet source=greenhouse (repeatable)")
 }
 
-// warnIgnored reports the query params the API did not read, on stderr.
+// warnIgnored reports, on stderr, the query params the API did not read and the
+// filter values it did not recognise.
 //
 // stderr, not stdout: --json output is piped into jq or an agent's parser, and a
 // warning mixed into it would break the parse. Staying silent instead is worse
 // than either — an unread filter widens the result set rather than failing the
-// request, so the caller gets a bigger, wronger answer with nothing to show that
-// anything went astray.
-func warnIgnored(cmd *cobra.Command, ignored []client.IgnoredParam) {
-	for _, p := range ignored {
+// request, and an unrecognised value usually narrows it to nothing (--skills
+// golangg) — though not always (a misspelt boolean still reads as one) — so the
+// caller gets a wronger answer with nothing to show that anything went astray.
+// The warning names the value without claiming what it did to the count.
+func warnIgnored(cmd *cobra.Command, params []client.IgnoredParam, values client.IgnoredValues) {
+	for _, p := range params {
 		hint := ""
 		if p.DidYouMean != "" {
 			hint = fmt.Sprintf(" — did you mean %q?", p.DidYouMean)
 		}
 		fmt.Fprintf(cmd.ErrOrStderr(), "warning: ignored unknown filter %q%s\n", p.Param, hint)
+	}
+	filters := make([]string, 0, len(values))
+	for f := range values {
+		filters = append(filters, f)
+	}
+	sort.Strings(filters)
+	for _, f := range filters {
+		for _, v := range values[f] {
+			fmt.Fprintf(cmd.ErrOrStderr(), "warning: unrecognised %s value %q — results may not be what you meant; see `freehire facets`\n", f, v)
+		}
 	}
 }
 

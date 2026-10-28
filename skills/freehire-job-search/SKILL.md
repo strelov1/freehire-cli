@@ -112,7 +112,12 @@ apply to geography.
 **Read the warnings on stderr.** A filter param the API does not recognize is
 ignored, not refused — the search still runs, just wider. The CLI prints
 `warning: ignored unknown filter "country" — did you mean "countries"?` to stderr
-(stdout stays clean JSON). `search`, `facets` and `market-fit` all report it.
+(stdout stays clean JSON). A known filter given a value outside its vocabulary
+(including an `_exclude` value) prints
+`warning: unrecognised skills value "golangg" — results may not be what you meant`.
+Usually it narrows to nothing, so a typo reads as an empty market. Skill aliases
+(`golang`) resolve on their own; check `freehire facets` for the spelling the
+warning rejected. `search`, `facets` and `market-fit` all report both.
 Never quote a number from a run that printed one: the count, the distribution or
 the coverage percentage answers a broader question than the one asked.
 
@@ -123,7 +128,8 @@ single posting's other detail. Keep `--limit` small when you read descriptions.
 **3. Open what looks right.**
 
 ```bash
-freehire job <slug>                    # full content + posting URL + company slug
+freehire job <slug>                    # full content + posting URL + company slug (CLOSED line if closed)
+freehire similar <slug>                # more like this one, nearest first
 freehire company <slug>                # a company and its open jobs
 ```
 

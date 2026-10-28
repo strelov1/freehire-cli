@@ -46,6 +46,12 @@ func (e *APIError) Error() string {
 	return fmt.Sprintf("api error %d", e.Status)
 }
 
+// IgnoredValues maps a closed-vocabulary filter to the values the API did not
+// recognise (meta.ignored_values), e.g. {"skills": ["golangg"]}. The twin of
+// IgnoredParam one level down: a known filter carrying an unknown value still
+// narrows — to nothing — so the answer is a confident zero, not an error.
+type IgnoredValues map[string][]string
+
 // IgnoredParam is a query param the API did not read, reported back in `meta`.
 // DidYouMean carries the real facet name when the sent one was only its
 // singular — the common miss, since most facets are plural.
@@ -60,8 +66,9 @@ type IgnoredParam struct {
 // way through would leave a count or a percentage looking authoritative when it
 // answered a wider question than the caller asked.
 type Doc struct {
-	Data    json.RawMessage
-	Ignored []IgnoredParam
+	Data          json.RawMessage
+	Ignored       []IgnoredParam
+	IgnoredValues IgnoredValues
 }
 
 // Page is a slice of list results: the raw `data` array, the total match count
@@ -71,9 +78,10 @@ type Doc struct {
 // request, it widens it, so the count comes back larger and reads as a real
 // answer. Callers surface it rather than dropping it.
 type Page struct {
-	Data    json.RawMessage
-	Total   int
-	Ignored []IgnoredParam
+	Data          json.RawMessage
+	Total         int
+	Ignored       []IgnoredParam
+	IgnoredValues IgnoredValues
 	// Semantic is what became of SearchParams.Semantic: "applied", or "unavailable"
 	// when the API answered with keyword matches only. Empty when not asked.
 	Semantic string
@@ -99,6 +107,7 @@ type envelope struct {
 	Meta struct {
 		Total         int            `json:"total"`
 		IgnoredParams []IgnoredParam `json:"ignored_params"`
+		IgnoredValues IgnoredValues  `json:"ignored_values"`
 		Semantic      string         `json:"semantic"`
 		// TotalIsLowerBound is meta.total_is_lower_bound.
 		TotalIsLowerBound bool `json:"total_is_lower_bound"`
@@ -151,7 +160,8 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 		return Page{}, err
 	}
 	return Page{
-		Data: env.Data, Total: env.Meta.Total, Ignored: env.Meta.IgnoredParams,
+		Data: env.Data, Total: env.Meta.Total,
+		Ignored: env.Meta.IgnoredParams, IgnoredValues: env.Meta.IgnoredValues,
 		Semantic: env.Meta.Semantic, TotalIsLowerBound: env.Meta.TotalIsLowerBound,
 	}, nil
 }
@@ -186,7 +196,7 @@ func (c *Client) Coverage(ctx context.Context, p CoverageParams) (Doc, error) {
 		path += "?" + enc
 	}
 	env, err := c.do(ctx, http.MethodPost, path, bytes.NewReader(body))
-	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams}, err
+	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams, IgnoredValues: env.Meta.IgnoredValues}, err
 }
 
 // Facets returns the market's facet-value distributions under an optional filter
@@ -204,7 +214,16 @@ func (c *Client) Facets(ctx context.Context, facets url.Values) (Doc, error) {
 		path += "?" + enc
 	}
 	env, err := c.do(ctx, http.MethodGet, path, nil)
-	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams}, err
+	return Doc{Data: env.Data, Ignored: env.Meta.IgnoredParams, IgnoredValues: env.Meta.IgnoredValues}, err
+}
+
+// Similar returns the postings nearest to one posting, nearest first
+// (GET /jobs/:slug/similar). Empty for the newest postings, whose neighbours
+// are not computed yet.
+func (c *Client) Similar(ctx context.Context, slug string, limit int) (json.RawMessage, error) {
+	path := "/api/v1/jobs/" + url.PathEscape(slug) + "/similar?limit=" + strconv.Itoa(limit)
+	env, err := c.do(ctx, http.MethodGet, path, nil)
+	return env.Data, err
 }
 
 // Save bookmarks a job (POST /jobs/:slug/save).

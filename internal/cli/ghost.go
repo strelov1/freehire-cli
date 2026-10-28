@@ -101,7 +101,7 @@ func (g *ghostSignal) detailFor(code string) string {
 		if g.ATSCheckedAt == nil {
 			return "checked against the company board"
 		}
-		return "checked " + ghostDay(*g.ATSCheckedAt)
+		return "checked " + calendarDay(*g.ATSCheckedAt)
 	case "silent_applications", "user_reports":
 		if g.Contributors == nil {
 			return "reported"
@@ -111,9 +111,9 @@ func (g *ghostSignal) detailFor(code string) string {
 	return ""
 }
 
-// ghostDay reduces a served timestamp to its calendar day, leaving anything it
+// calendarDay reduces a served timestamp to its calendar day, leaving anything it
 // cannot parse untouched — an odd-looking date is better than a dropped one.
-func ghostDay(ts string) string {
+func calendarDay(ts string) string {
 	t, err := time.Parse(time.RFC3339, ts)
 	if err != nil {
 		return ts

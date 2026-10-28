@@ -69,3 +69,28 @@ func TestSearch_QuietWhenNothingIgnored(t *testing.T) {
 		t.Errorf("stderr = %q, want silence on a clean query", stderr)
 	}
 }
+
+func TestSearch_WarnsOnIgnoredValues(t *testing.T) {
+	// A known filter carrying an unknown value usually narrows to nothing:
+	// without the warning, a typo (--skills golangg) reads as an empty market.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Write([]byte(`{"data":[],"meta":{"total":0,"ignored_values":{"skills":["golangg"],"work_mode":["foo"]}}}`))
+	}))
+	t.Cleanup(srv.Close)
+	t.Setenv("FREEHIRE_TOKEN", "good")
+	t.Setenv("FREEHIRE_API_URL", srv.URL)
+
+	stdout, stderr, err := runSplit(t, "search", "go", "--json", "--skills", "golangg")
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if !strings.Contains(stderr, `skills value "golangg"`) || !strings.Contains(stderr, `work_mode value "foo"`) {
+		t.Errorf("stderr = %q, want both unknown values named", stderr)
+	}
+	if strings.Index(stderr, "skills") > strings.Index(stderr, "work_mode") {
+		t.Errorf("stderr = %q, want filters in a stable (sorted) order", stderr)
+	}
+	if strings.TrimSpace(stdout) != "[]" {
+		t.Errorf("stdout = %q, want the JSON payload alone", stdout)
+	}
+}
