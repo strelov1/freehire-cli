@@ -136,6 +136,24 @@ freehire company <slug>                # a company and its open jobs
 To mark, stage and follow what they applied to, use the
 **freehire-track-applications** skill.
 
+## Keep watching: job alerts
+
+When the person wants to hear about new postings for a search, save it as an alert.
+Run the search first so they see what it catches, then create it with the SAME flags:
+
+```bash
+freehire alerts add --skills go --remote --region eu --name "Go EU"
+freehire alerts list                   # ids, filters, channels, paused
+freehire alerts update <id> --salary-min 5000   # pass only what changes
+freehire alerts pause <id>             # hold it; resume <id> brings it back
+freehire alerts updates                # what the alerts matched lately
+```
+
+Alerts are delivered by email, Telegram, the app or a webhook — never to this
+chat. On `update`, any filter flag replaces the alert's whole filter set, so read
+it from `alerts list --json` (`.alerts[].search`) and pass every filter it should
+keep. To stop one for a while, pause it rather than removing it.
+
 ## A job freehire doesn't have
 
 When the person is looking at a vacancy that is not in the catalogue — they pasted a link,
