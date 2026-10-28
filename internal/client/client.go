@@ -455,23 +455,9 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (e
 		payload = b
 	}
 
-	resp, err := c.send(ctx, method, path, payload)
+	resp, err := c.exchange(ctx, method, path, payload, "application/json")
 	if err != nil {
 		return envelope{}, err
-	}
-	if edgeChallenged(resp) {
-		resp.Body.Close()
-		door, ok := c.doorPath(path)
-		if !ok {
-			msg := "blocked by the network edge, which challenges VPN and hosting networks: retry off the VPN"
-			if c.token == "" {
-				msg += ", or sign in with `freehire auth login` (signed-in requests go around it)"
-			}
-			return envelope{}, &APIError{Status: resp.StatusCode, Message: msg}
-		}
-		if resp, err = c.send(ctx, method, door, payload); err != nil {
-			return envelope{}, err
-		}
 	}
 	defer resp.Body.Close()
 
@@ -494,8 +480,27 @@ func (c *Client) do(ctx context.Context, method, path string, body io.Reader) (e
 	return env, nil
 }
 
+// exchange sends one request and, when the edge challenges it, sends it once more
+// through the signed-in door.
+func (c *Client) exchange(ctx context.Context, method, path string, payload []byte, accept string) (*http.Response, error) {
+	resp, err := c.send(ctx, method, path, payload, accept)
+	if err != nil || !edgeChallenged(resp) {
+		return resp, err
+	}
+	resp.Body.Close()
+	door, ok := c.doorPath(path)
+	if !ok {
+		msg := "blocked by the network edge, which challenges VPN and hosting networks: retry off the VPN"
+		if c.token == "" {
+			msg += ", or sign in with `freehire auth login` (signed-in requests go around it)"
+		}
+		return nil, &APIError{Status: resp.StatusCode, Message: msg}
+	}
+	return c.send(ctx, method, door, payload, accept)
+}
+
 // send makes one request; a nil payload sends no body.
-func (c *Client) send(ctx context.Context, method, path string, payload []byte) (*http.Response, error) {
+func (c *Client) send(ctx context.Context, method, path string, payload []byte, accept string) (*http.Response, error) {
 	var body io.Reader
 	if payload != nil {
 		body = bytes.NewReader(payload)
@@ -507,7 +512,7 @@ func (c *Client) send(ctx context.Context, method, path string, payload []byte) 
 	if c.token != "" {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 	}
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", accept)
 	req.Header.Set("User-Agent", UserAgent)
 	if payload != nil {
 		req.Header.Set("Content-Type", "application/json")

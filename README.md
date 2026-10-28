@@ -81,6 +81,12 @@ freehire unsave <slug>                                         # remove a bookma
 freehire stage <slug> <stage>                                  # set application stage (applied→…→offer, or rejected/withdrawn)
 freehire note <slug> a quick reminder                          # attach a free-text note (trailing args; no quotes needed)
 freehire my --filter applied                                   # tracked jobs, showing stage + note (all|viewed|saved|applied)
+freehire alerts add --skills go --remote --region eu           # a job alert over search's own filters (see below)
+freehire alerts list                                           # your alerts: id, filters, channels, paused
+freehire alerts update <id> --salary-min 5000                  # change only what you pass
+freehire alerts pause <id> / resume <id>                       # hold an alert without losing it
+freehire alerts remove <id>                                    # stop it (the saved search stays as a bookmark)
+freehire alerts updates                                        # postings your alerts matched this week
 freehire contribute <url>                                      # hand freehire a job link (see below)
 freehire contributions                                         # boards you've contributed
 freehire ghost report <slug> --applied-on 2026-06-01           # you applied that day and were never answered
@@ -92,6 +98,16 @@ freehire inbox list --link suggested                          # matcher proposal
 freehire inbox confirm <id>                                   # accept one of them
 freehire inbox application <id> <slug>                        # mail about an untracked application
 ```
+
+**Job alerts.** An alert is a saved search delivered on the channels your account
+has connected — email, Telegram, the mobile app or a webhook — never to the
+terminal. `alerts add` takes `search`'s filter flags (plus `--salary-max`, `--name`
+and repeatable `--channel`) and refuses a search that does not narrow the catalogue;
+run the same flags through `freehire search` first to see what it would catch. A
+filter value outside the vocabulary is dropped and named on stderr. On `alerts
+update`, any filter flag replaces the alert's whole filter set (`--clear-filters`
+empties it), so a rename never touches the filters. The commands call the signed-in
+MCP server's alert tools, so they need a browser sign-in or a full-scope key.
 
 **Experience bank.** `experience list` shows every achievement grouped under the
 employment it belongs to (achievements with no place come back under `unplaced`) —
