@@ -45,7 +45,7 @@ func newFacetsCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			warnIgnored(cmd, data.Ignored)
+			warnIgnored(cmd, data.Ignored, data.IgnoredValues)
 			if wantJSON(cmd) {
 				printJSON(cmd, data.Data)
 				return nil

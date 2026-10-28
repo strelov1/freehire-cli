@@ -71,7 +71,8 @@ freehire search "data" --country BR --employment-type full_time --facet source=g
 freehire search "help kids learn to read" --semantic            # also match postings that say it in other words
 freehire market-fit --skills go,docker,react --category backend  # how much of the market your skills cover (+ gaps)
 freehire market-fit --skills go --country BR                    # one skill probes that skill's demand under the filter
-freehire job <slug>                                            # show a job's full content (incl. posting URL + company slug)
+freehire job <slug>                                            # show a job's full content (incl. posting URL + company slug; says CLOSED if it closed)
+freehire similar <slug>                                        # postings most like this one, nearest first
 freehire company <slug>                                        # show a company and its open jobs
 freehire apply <slug>                                          # mark a job applied for your account
 freehire apply <slug> --on 2026-07-27                          # ...on the day you actually sent it

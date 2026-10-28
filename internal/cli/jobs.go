@@ -67,7 +67,7 @@ run, the results are keyword-only and a warning says so.`,
 			if err != nil {
 				return err
 			}
-			warnIgnored(cmd, res.Ignored)
+			warnIgnored(cmd, res.Ignored, res.IgnoredValues)
 			if res.Semantic == "unavailable" {
 				fmt.Fprintln(cmd.ErrOrStderr(), "warning: semantic search unavailable — showing keyword matches only")
 			}
@@ -129,6 +129,11 @@ func newJobCmd() *cobra.Command {
 			out := cmd.OutOrStdout()
 			fmt.Fprintf(out, "%s\n%s (%s) · %s\n%s\n",
 				j.Title, j.Company, j.CompanySlug, j.Location, j.URL)
+			// A slug from an old shortlist still resolves after the posting closes, and
+			// nothing else on the page says so.
+			if j.ClosedAt != "" {
+				fmt.Fprintf(out, "\nCLOSED on %s — no longer accepting applications\n", calendarDay(j.ClosedAt))
+			}
 			// Above the description, not after it: a posting runs for screens, and a
 			// reader who should know this before applying would never reach the bottom.
 			if lines := j.Ghost.lines(); len(lines) > 0 {
@@ -138,6 +143,48 @@ func newJobCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newSimilarCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "similar <slug>",
+		Short: "List the postings most similar to one job, nearest first",
+		Long: `List the postings most similar to one job, nearest first.
+
+Empty for the newest postings, whose neighbours are not computed yet.`,
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, _, err := publicClient(cmd)
+			if err != nil {
+				return err
+			}
+			limit, _ := cmd.Flags().GetInt("limit")
+			data, err := c.Similar(cmd.Context(), args[0], limit)
+			if err != nil {
+				return err
+			}
+			if wantJSON(cmd) {
+				printJSON(cmd, data)
+				return nil
+			}
+			var rows []jobRow
+			if err := json.Unmarshal(data, &rows); err != nil {
+				return err
+			}
+			out := cmd.OutOrStdout()
+			if len(rows) == 0 {
+				fmt.Fprintln(out, "no similar postings yet — neighbours are computed a while after a posting appears")
+				return nil
+			}
+			for _, r := range rows {
+				fmt.Fprintf(out, "%-40s  %-20s  %-16s  %s\n",
+					trunc(r.Title, 40), trunc(r.Company, 20), trunc(r.Location, 16), r.PublicSlug)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().Int("limit", 10, "maximum results")
+	return cmd
 }
 
 func newApplyCmd() *cobra.Command {

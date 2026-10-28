@@ -37,7 +37,7 @@ func newRootCmd() *cobra.Command {
 	client.UserAgent = "freehire-cli/" + Version
 	root.PersistentFlags().Bool("json", false, "output raw JSON from the API")
 	root.PersistentFlags().String("api-url", "", "override the API base URL")
-	root.AddCommand(newAuthCmd(), newSearchCmd(), newJobCmd(), newApplyCmd(),
+	root.AddCommand(newAuthCmd(), newSearchCmd(), newJobCmd(), newSimilarCmd(), newApplyCmd(),
 		newSaveCmd(), newUnsaveCmd(), newMyCmd(), newStageCmd(), newNoteCmd(),
 		newCompanyCmd(), newJobsCmd(), newContributeCmd(), newContributionsCmd(), newSubmissionsCmd(),
 		newMarketFitCmd(), newFacetsCmd(), newCVCmd(), newProfileCmd(),
@@ -113,4 +113,5 @@ type jobDetail struct {
 	URL         string       `json:"url"`
 	Description string       `json:"description"`
 	Ghost       *ghostSignal `json:"ghost"`
+	ClosedAt    string       `json:"closed_at"`
 }
