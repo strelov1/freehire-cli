@@ -56,6 +56,8 @@ func (cb *callbackServer) handle(w http.ResponseWriter, r *http.Request) {
 		// the one the login attempt is waiting for was already delivered.
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	// callbackPage selects constant HTML; no query value is interpolated.
+	// nosemgrep: go.net.xss.no-direct-write-to-responsewriter-taint.no-direct-write-to-responsewriter-taint
 	_, _ = w.Write([]byte(callbackPage(errorParam)))
 }
 

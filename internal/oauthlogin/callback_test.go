@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -99,6 +101,36 @@ func TestCallbackServer_PageMatchesTheOutcome(t *testing.T) {
 		_ = resp.Body.Close()
 		if !strings.Contains(string(body), want) {
 			t.Errorf("GET %s: page lacks %q", query, want)
+		}
+	}
+}
+
+func TestCallbackServer_DoesNotReflectQueryValues(t *testing.T) {
+	payload := `<script>alert("xss")</script><img src=x onerror=alert(1)>`
+	for _, refused := range []bool{false, true} {
+		q := url.Values{"code": {payload}, "state": {payload}}
+		want := "Return to the terminal"
+		if refused {
+			q.Set("error", payload)
+			want = "Connection cancelled"
+		}
+		r := httptest.NewRequest(http.MethodGet, "/callback?"+q.Encode(), nil)
+		w := httptest.NewRecorder()
+		cb := &callbackServer{result: make(chan callbackResult, 1)}
+		cb.handle(w, r)
+		if got := w.Header().Get("Content-Type"); got != "text/html; charset=utf-8" {
+			t.Errorf("Content-Type = %q", got)
+		}
+		body := w.Body.String()
+		if !strings.Contains(body, want) {
+			t.Errorf("page lacks %q", want)
+		}
+		if strings.Contains(body, payload) || strings.Contains(body, "<script") || strings.Contains(body, "<img") {
+			t.Error("callback reflects attacker-controlled HTML")
+		}
+		result := <-cb.result
+		if result.code != payload || result.state != payload || (refused && result.errorParam != payload) {
+			t.Errorf("callback result was altered: %+v", result)
 		}
 	}
 }
