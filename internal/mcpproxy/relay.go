@@ -61,19 +61,20 @@ type message struct {
 	} `json:"result"`
 }
 
-// Run relays until in ends, then lets the requests in flight finish for up to
+// Run relays until in ends, then lets the messages in flight finish for up to
 // shutdownGrace before cancelling them, and returns nil.
 //
 // A request is sent concurrently: a host may issue a call while another is pending, and
 // a long tool call must not hold up a cancellation behind it. Everything else — the
-// initialize request, notifications, the host's responses — is sent in order before the
-// next message is read: notifications/initialized must reach the server before the
-// request that follows it, and every later request carries the version initialize settles.
+// initialize request, notifications, the host's responses — is sent in order: nothing
+// after it is sent until it has been, since notifications/initialized must reach the
+// server before the request that follows it and every later request carries the version
+// initialize settles. The order is kept by a chain of gates rather than by sending inline,
+// so the read loop never blocks on the server and always sees stdin close.
 func (r *Relay) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 	r.out = out
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	reader := bufio.NewReader(in)
 	var wg sync.WaitGroup
 	defer func() {
 		finished := make(chan struct{})
@@ -85,6 +86,11 @@ func (r *Relay) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 			<-finished
 		}
 	}()
+
+	// gate closes once the last in-order message has been sent.
+	gate := make(chan struct{})
+	close(gate)
+	reader := bufio.NewReader(in)
 	for {
 		line, err := reader.ReadBytes('\n')
 		if line = bytes.TrimSpace(line); len(line) > 0 {
@@ -92,15 +98,25 @@ func (r *Relay) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 			// (positional params, say) is still forwarded verbatim, unrouted.
 			var msg message
 			_ = json.Unmarshal(line, &msg)
+			after := gate
+			var sent chan struct{}
 			if !msg.isRequest() || msg.Method == "initialize" {
-				r.forward(ctx, line, msg)
-			} else {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					r.forward(ctx, line, msg)
-				}()
+				sent = make(chan struct{})
+				gate = sent
 			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				if sent != nil {
+					defer close(sent)
+				}
+				select {
+				case <-after:
+					r.forward(ctx, line, msg)
+				case <-ctx.Done():
+					r.fail(msg, "the MCP host closed the connection")
+				}
+			}()
 		}
 		if errors.Is(err, io.EOF) {
 			return nil

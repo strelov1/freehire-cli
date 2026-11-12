@@ -310,3 +310,18 @@ func TestRelay_AnUnauthorizedAnswerSaysToRestartAfterSigningIn(t *testing.T) {
 		t.Fatalf("wrote %q", out)
 	}
 }
+
+// A message sent in order (initialize, a notification) that stalls must not keep the
+// relay from seeing stdin close: the grace period still starts and still ends it.
+func TestRelay_ClosedStdinBoundsAStalledInOrderMessage(t *testing.T) {
+	defer func(g time.Duration) { shutdownGrace = g }(shutdownGrace)
+	shutdownGrace = 100 * time.Millisecond
+	start := time.Now()
+	_, err := relayOnce(t, func(_ http.ResponseWriter, r *http.Request) {
+		_, _ = io.ReadAll(r.Body)
+		<-r.Context().Done()
+	}, `{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
+	if err != nil || time.Since(start) > 5*time.Second {
+		t.Fatalf("Run = %v after %v", err, time.Since(start))
+	}
+}
