@@ -347,6 +347,10 @@ func TestRelay_AJSONAnswerForAnotherIDIsAnErrorForTheRequest(t *testing.T) {
 	if err != nil || !strings.Contains(out, `"id":8`) || !strings.Contains(out, `"error"`) {
 		t.Fatalf("Run = %v, wrote %q", err, out)
 	}
+	// The stray answer is not relayed: the host could take it for another request's.
+	if strings.Contains(out, `"id":99`) {
+		t.Fatalf("relayed the answer for another id: %q", out)
+	}
 }
 
 // 202 Accepted answers a notification; a request accepted that way is still owed an answer.

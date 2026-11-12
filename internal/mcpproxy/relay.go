@@ -163,10 +163,13 @@ func (r *Relay) forward(ctx context.Context, body []byte, msg message) {
 			r.fail(msg, "reading the freehire MCP answer: "+err.Error())
 			return
 		}
-		r.emit(payload, msg)
+		// Checked before relaying: a stray answer could be taken by the host for the
+		// response to another request it has in flight.
 		if msg.isRequest() && !answers(payload, msg) {
 			r.fail(msg, "the freehire MCP answer is not the response to this request")
+			return
 		}
+		r.emit(payload, msg)
 	default:
 		// 202 Accepted answers a notification or a response and carries nothing to relay;
 		// anything else, and a request accepted that way, leaves a request unanswered
