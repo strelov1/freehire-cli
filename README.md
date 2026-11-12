@@ -313,7 +313,14 @@ tool, so an agent loads what the question needs and not the whole surface:
 | [`freehire-tailor-cv`](skills/freehire-tailor-cv/SKILL.md) | reframing a CV toward one vacancy, and the evidence rule |
 | [`freehire-mail-triage`](skills/freehire-mail-triage/SKILL.md) | pushing, judging and linking application mail |
 
-Drop them into a Claude Code (or compatible) skills directory, or install this repo as a
+Install them with one command — they ship inside the binary, so no checkout is needed:
+
+```
+freehire skills install                    # into ~/.claude/skills
+freehire skills install --dir <path>       # another agent's skills folder
+```
+
+Re-running it updates them. Or install this repo as a
 **Claude Code plugin** to get the skills *and* the slash commands wired up automatically:
 
 ```
