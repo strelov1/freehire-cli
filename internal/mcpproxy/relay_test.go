@@ -2,12 +2,14 @@ package mcpproxy
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
@@ -225,5 +227,86 @@ func TestRelay_ARefusedResponseIsNotAnsweredWithAnError(t *testing.T) {
 	}, `{"jsonrpc":"2.0","id":5,"result":{}}`)
 	if err != nil || out != "" {
 		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}
+
+// A request answered 2xx with nothing the relay can read still gets an answer.
+func TestRelay_ASuccessWithNoReadableBodyIsAnErrorForTheRequest(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = io.WriteString(w, "hello")
+	}, `{"jsonrpc":"2.0","id":4,"method":"tools/list"}`)
+	if err != nil || !strings.Contains(out, `"id":4`) || !strings.Contains(out, `"error"`) {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}
+
+// A stream that ends after a progress notification but before the response leaves the
+// request owed an answer.
+func TestRelay_AStreamThatEndsWithoutTheResponseIsAnError(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "event: message\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\",\"params\":{}}\n\n")
+	}, `{"jsonrpc":"2.0","id":"a","method":"tools/call","params":{}}`)
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if err != nil || len(lines) != 2 || !strings.Contains(lines[0], "notifications/progress") ||
+		!strings.Contains(lines[1], `"id":"a"`) || !strings.Contains(lines[1], `"error"`) {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}
+
+// Notifications go out in order before the next message: notifications/initialized must
+// reach the server before the request that follows it.
+func TestRelay_ANotificationIsSentBeforeTheNextMessage(t *testing.T) {
+	var (
+		mu    sync.Mutex
+		order []string
+	)
+	_, err := relayOnce(t, func(w http.ResponseWriter, r *http.Request) {
+		var m struct {
+			Method string `json:"method"`
+		}
+		b, _ := io.ReadAll(r.Body)
+		_ = json.Unmarshal(b, &m)
+		if m.Method == "notifications/initialized" {
+			time.Sleep(50 * time.Millisecond) // a slow notification must still come first
+		}
+		mu.Lock()
+		order = append(order, m.Method)
+		mu.Unlock()
+		if m.Method == "tools/list" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":2,"result":{}}`)
+			return
+		}
+		w.WriteHeader(http.StatusAccepted)
+	}, `{"jsonrpc":"2.0","method":"notifications/initialized"}`, `{"jsonrpc":"2.0","id":2,"method":"tools/list"}`)
+	if err != nil || len(order) != 2 || order[0] != "notifications/initialized" {
+		t.Fatalf("Run = %v, order %v", err, order)
+	}
+}
+
+// Once the host closes stdin it is going away: a request that never ends is cancelled
+// after the grace period instead of keeping the process alive.
+func TestRelay_ClosedStdinBoundsTheWaitForRequestsInFlight(t *testing.T) {
+	defer func(g time.Duration) { shutdownGrace = g }(shutdownGrace)
+	shutdownGrace = 100 * time.Millisecond
+	start := time.Now()
+	_, err := relayOnce(t, func(_ http.ResponseWriter, r *http.Request) {
+		// The server notices the client went away only once the body is read.
+		_, _ = io.ReadAll(r.Body)
+		<-r.Context().Done()
+	}, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{}}`)
+	if err != nil || time.Since(start) > 5*time.Second {
+		t.Fatalf("Run = %v after %v", err, time.Since(start))
+	}
+}
+
+func TestRelay_AnUnauthorizedAnswerSaysToRestartAfterSigningIn(t *testing.T) {
+	out, _ := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}, `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{}}`)
+	if !strings.Contains(out, "freehire auth login") || !strings.Contains(out, "restart") {
+		t.Fatalf("wrote %q", out)
 	}
 }

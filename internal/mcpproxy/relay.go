@@ -19,12 +19,16 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 )
 
 // signedInDoor is the API's second address for /api/v1, open only to a caller holding
 // a credential. The edge challenges VPN and hosting networks — a challenge no CLI can
 // solve — and lets /api/v1/me/ through. The CLI's API client uses the same door.
 const signedInDoor = "/api/v1/me/api"
+
+// shutdownGrace is how long requests in flight may still finish once stdin closes.
+var shutdownGrace = 10 * time.Second
 
 const metaKeyProtocolVersion = "io.modelcontextprotocol/protocolVersion"
 
@@ -57,14 +61,30 @@ type message struct {
 	} `json:"result"`
 }
 
-// Run relays until in ends, then waits for the requests in flight and returns nil.
-// Each message is sent concurrently: a host may issue a call while another is pending,
-// and a long tool call must not hold up a cancellation behind it.
+// Run relays until in ends, then lets the requests in flight finish for up to
+// shutdownGrace before cancelling them, and returns nil.
+//
+// A request is sent concurrently: a host may issue a call while another is pending, and
+// a long tool call must not hold up a cancellation behind it. Everything else — the
+// initialize request, notifications, the host's responses — is sent in order before the
+// next message is read: notifications/initialized must reach the server before the
+// request that follows it, and every later request carries the version initialize settles.
 func (r *Relay) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 	r.out = out
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	reader := bufio.NewReader(in)
 	var wg sync.WaitGroup
-	defer wg.Wait()
+	defer func() {
+		finished := make(chan struct{})
+		go func() { wg.Wait(); close(finished) }()
+		select {
+		case <-finished:
+		case <-time.After(shutdownGrace):
+			cancel()
+			<-finished
+		}
+	}()
 	for {
 		line, err := reader.ReadBytes('\n')
 		if line = bytes.TrimSpace(line); len(line) > 0 {
@@ -72,9 +92,7 @@ func (r *Relay) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 			// (positional params, say) is still forwarded verbatim, unrouted.
 			var msg message
 			_ = json.Unmarshal(line, &msg)
-			if msg.Method == "initialize" {
-				// Every later request carries the version initialize settles, so it
-				// must be answered before anything else is sent.
+			if !msg.isRequest() || msg.Method == "initialize" {
 				r.forward(ctx, line, msg)
 			} else {
 				wg.Add(1)
@@ -92,6 +110,9 @@ func (r *Relay) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 		}
 	}
 }
+
+// isRequest reports a message that expects an answer: a method with an id.
+func (m message) isRequest() bool { return m.Method != "" && len(m.ID) > 0 }
 
 // forward sends one message and relays the answer. A failure answers a request with a
 // JSON-RPC error for its id — the host otherwise waits for a reply that never comes.
@@ -111,7 +132,7 @@ func (r *Relay) forward(ctx context.Context, body []byte, msg message) {
 		text, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
 		reason := fmt.Sprintf("freehire MCP answered HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(text)))
 		if resp.StatusCode == http.StatusUnauthorized {
-			reason += " (run `freehire auth login`)"
+			reason += " (run `freehire auth login`, then restart this MCP server)"
 		}
 		r.fail(msg, reason)
 		return
@@ -127,8 +148,14 @@ func (r *Relay) forward(ctx context.Context, body []byte, msg message) {
 			return
 		}
 		r.emit(payload, msg)
+	default:
+		// 202 Accepted (a notification or a response) carries nothing to relay;
+		// anything else leaves a request unanswered unless it is told so.
+		if resp.StatusCode != http.StatusAccepted {
+			r.fail(msg, fmt.Sprintf("freehire MCP answered HTTP %d with unreadable content (%q)",
+				resp.StatusCode, resp.Header.Get("Content-Type")))
+		}
 	}
-	// 202 Accepted (a notification or a response) carries nothing to relay.
 }
 
 func (r *Relay) post(ctx context.Context, body []byte, msg message) (*http.Response, error) {
@@ -186,9 +213,12 @@ func (r *Relay) relayEvents(body io.Reader, sent message) {
 	scanner := bufio.NewScanner(body)
 	scanner.Buffer(make([]byte, 64*1024), 16*1024*1024)
 	var data []string
+	answered := false
 	flush := func() {
 		if len(data) > 0 {
-			r.emit([]byte(strings.Join(data, "\n")), sent)
+			event := []byte(strings.Join(data, "\n"))
+			answered = answered || answers(event, sent)
+			r.emit(event, sent)
 			data = nil
 		}
 	}
@@ -202,9 +232,25 @@ func (r *Relay) relayEvents(body io.Reader, sent message) {
 		}
 	}
 	flush()
-	if err := scanner.Err(); err != nil {
-		r.fail(sent, "reading the freehire MCP stream: "+err.Error())
+	switch {
+	case scanner.Err() != nil:
+		r.fail(sent, "reading the freehire MCP stream: "+scanner.Err().Error())
+	case !answered:
+		r.fail(sent, "the freehire MCP stream ended without a response")
 	}
+}
+
+// answers reports whether event is the response to the request sent.
+func answers(event []byte, sent message) bool {
+	var m struct {
+		ID     json.RawMessage `json:"id"`
+		Method string          `json:"method"`
+	}
+	if json.Unmarshal(event, &m) != nil || m.Method != "" || len(m.ID) == 0 {
+		return false
+	}
+	var a, b bytes.Buffer
+	return json.Compact(&a, m.ID) == nil && json.Compact(&b, sent.ID) == nil && a.String() == b.String()
 }
 
 // emit writes one server message as a single line, and learns the negotiated protocol
@@ -232,7 +278,7 @@ func (r *Relay) emit(payload []byte, sent message) {
 // fail answers a request with a JSON-RPC error. A notification, or the host's own
 // response to a server request, is owed no answer.
 func (r *Relay) fail(sent message, reason string) {
-	if len(sent.ID) == 0 || sent.Method == "" {
+	if !sent.isRequest() {
 		return
 	}
 	payload, _ := json.Marshal(map[string]any{
