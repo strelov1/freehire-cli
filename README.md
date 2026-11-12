@@ -299,6 +299,26 @@ Conventions: results go to **stdout**, errors to **stderr**, and a non-zero exit
 code signals failure (e.g. an unauthenticated call exits non-zero with
 `run \`freehire auth login\``).
 
+## MCP for a local AI host
+
+`freehire mcp` runs freehire's MCP server over stdio, signed in as the account
+`freehire auth login` stored — one sign-in for the terminal and the agent:
+
+```bash
+claude mcp add freehire -- freehire mcp
+```
+
+It is a relay to the hosted server at `<api-url>/api/v1/mcp`, so a local host gets
+exactly the remote connector's tools, prompts and instructions (search, tracking,
+alerts, auto-apply with an OAuth sign-in), and they never drift apart. Without a stored
+sign-in it serves the public catalogue tools only. Because the session arrives through
+this CLI, the server tells the agent the CLI is on its shell: whole result sets
+(`freehire search … --json > jobs.json`) and the CV PDF (`freehire cv render … --out`)
+go to disk instead of into the agent's context.
+
+The CV and experience-bank tools are not on the hosted server yet; until they are,
+[freehire-mcp](https://github.com/strelov1/freehire-mcp) still provides them.
+
 ## Agent skills and slash commands
 
 Six agent **skills** ship in [`skills/`](skills/), one per task rather than one per
