@@ -325,3 +325,37 @@ func TestRelay_ClosedStdinBoundsAStalledInOrderMessage(t *testing.T) {
 		t.Fatalf("Run = %v after %v", err, time.Since(start))
 	}
 }
+
+// An SSE priming event (an id and empty data, which newer servers send first) carries no
+// message: it is skipped, not reported as a malformed answer.
+func TestRelay_AnEmptySSEEventIsSkipped(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "id: 0\ndata:\n\nevent: message\ndata: {\"jsonrpc\":\"2.0\",\"id\":9,\"result\":{}}\n\n")
+	}, `{"jsonrpc":"2.0","id":9,"method":"tools/list"}`)
+	if err != nil || out != `{"jsonrpc":"2.0","id":9,"result":{}}`+"\n" {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}
+
+// A JSON answer that is not the response to the request leaves it owed one.
+func TestRelay_AJSONAnswerForAnotherIDIsAnErrorForTheRequest(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":99,"result":{}}`)
+	}, `{"jsonrpc":"2.0","id":8,"method":"tools/list"}`)
+	if err != nil || !strings.Contains(out, `"id":8`) || !strings.Contains(out, `"error"`) {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}
+
+// 202 Accepted answers a notification; a request accepted that way is still owed an answer.
+func TestRelay_A202ForARequestIsAnError(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusAccepted)
+	}, `{"jsonrpc":"2.0","id":6,"method":"tools/list"}`, `{"jsonrpc":"2.0","method":"notifications/initialized"}`)
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if err != nil || len(lines) != 1 || !strings.Contains(lines[0], `"id":6`) || !strings.Contains(lines[0], `"error"`) {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}

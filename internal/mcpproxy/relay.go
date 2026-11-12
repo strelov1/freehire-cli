@@ -164,10 +164,14 @@ func (r *Relay) forward(ctx context.Context, body []byte, msg message) {
 			return
 		}
 		r.emit(payload, msg)
+		if msg.isRequest() && !answers(payload, msg) {
+			r.fail(msg, "the freehire MCP answer is not the response to this request")
+		}
 	default:
-		// 202 Accepted (a notification or a response) carries nothing to relay;
-		// anything else leaves a request unanswered unless it is told so.
-		if resp.StatusCode != http.StatusAccepted {
+		// 202 Accepted answers a notification or a response and carries nothing to relay;
+		// anything else, and a request accepted that way, leaves a request unanswered
+		// unless it is told so.
+		if resp.StatusCode != http.StatusAccepted || msg.isRequest() {
 			r.fail(msg, fmt.Sprintf("freehire MCP answered HTTP %d with unreadable content (%q)",
 				resp.StatusCode, resp.Header.Get("Content-Type")))
 		}
@@ -272,6 +276,10 @@ func answers(event []byte, sent message) bool {
 // emit writes one server message as a single line, and learns the negotiated protocol
 // version from the answer to initialize.
 func (r *Relay) emit(payload []byte, sent message) {
+	// An SSE priming event (an id with empty data) carries no message.
+	if len(bytes.TrimSpace(payload)) == 0 {
+		return
+	}
 	var line bytes.Buffer
 	if err := json.Compact(&line, payload); err != nil {
 		r.fail(sent, "the freehire MCP answer is not JSON")
