@@ -39,7 +39,7 @@ const terminalIcon = `<div class="icon"><svg width="20" height="20" viewBox="0 0
 
 const (
 	callbackApprovedPage = callbackPageHead + terminalIcon + `    <h1>Return to the terminal</h1>
-    <p>freehire sent your approval back. You can close this tab — the <code>freehire</code> CLI finishes signing you in.</p>
+    <p>freehire sent your approval back. You can close this tab — the <code>freehire</code> CLI finishes signing you in. Then run <code>freehire skills install</code> to teach your AI agent freehire.</p>
 ` + callbackPageTail
 
 	callbackRefusedPage = callbackPageHead + terminalIcon + `    <h1>Connection cancelled</h1>

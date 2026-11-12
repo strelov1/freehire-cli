@@ -67,6 +67,7 @@ func newAuthLoginCmd() *cobra.Command {
 				return err
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "Logged in as %s\n", email(data))
+			fmt.Fprintln(cmd.OutOrStdout(), "Next: teach your AI agent freehire with `freehire skills install`.")
 			return nil
 		},
 	}
