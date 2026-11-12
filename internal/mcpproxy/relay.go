@@ -240,8 +240,16 @@ func (r *Relay) relayEvents(body io.Reader, sent message) {
 	flush := func() {
 		if len(data) > 0 {
 			event := []byte(strings.Join(data, "\n"))
-			answered = answered || answers(event, sent)
-			r.emit(event, sent)
+			switch {
+			case answers(event, sent):
+				answered = true
+				r.emit(event, sent)
+			case isResponse(event):
+				// A response for another id could be taken by the host for one it
+				// has in flight; it is no answer of this request's.
+			default:
+				r.emit(event, sent)
+			}
 			data = nil
 		}
 	}
@@ -261,6 +269,15 @@ func (r *Relay) relayEvents(body io.Reader, sent message) {
 	case !answered:
 		r.fail(sent, "the freehire MCP stream ended without a response")
 	}
+}
+
+// isResponse reports a response: an id and no method.
+func isResponse(event []byte) bool {
+	var m struct {
+		ID     json.RawMessage `json:"id"`
+		Method string          `json:"method"`
+	}
+	return json.Unmarshal(event, &m) == nil && m.Method == "" && len(m.ID) > 0 && string(m.ID) != "null"
 }
 
 // answers reports whether event is the response to the request sent.

@@ -363,3 +363,18 @@ func TestRelay_A202ForARequestIsAnError(t *testing.T) {
 		t.Fatalf("Run = %v, wrote %q", err, out)
 	}
 }
+
+// In a stream, too, a response for another id is dropped; the server's own requests and
+// notifications in it are relayed.
+func TestRelay_AStreamedResponseForAnotherIDIsDropped(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "data: {\"jsonrpc\":\"2.0\",\"id\":99,\"result\":{}}\n\n"+
+			"data: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\",\"params\":{}}\n\n"+
+			"data: {\"jsonrpc\":\"2.0\",\"id\":7,\"result\":{}}\n\n")
+	}, `{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{}}`)
+	want := `{"jsonrpc":"2.0","method":"notifications/progress","params":{}}` + "\n" + `{"jsonrpc":"2.0","id":7,"result":{}}` + "\n"
+	if err != nil || out != want {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}
