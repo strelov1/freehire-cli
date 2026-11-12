@@ -187,3 +187,43 @@ func mustProxy(t *testing.T, r *http.Request, to string) *http.Request {
 	out.Header = r.Header.Clone()
 	return out
 }
+
+// relayOnce sends lines to a relay in front of handler and returns everything it wrote
+// once stdin has closed and the requests in flight are answered.
+func relayOnce(t *testing.T, handler http.HandlerFunc, lines ...string) (string, error) {
+	t.Helper()
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+	var out strings.Builder
+	err := (&Relay{Endpoint: srv.URL, UserAgent: "freehire-cli/t"}).Run(context.Background(),
+		strings.NewReader(strings.Join(lines, "\n")+"\n"), &out)
+	return out.String(), err
+}
+
+// The relay reads a message only to route it; one it cannot read that way still goes
+// to the server verbatim rather than ending the session.
+func TestRelay_AMessageItCannotRouteIsStillForwarded(t *testing.T) {
+	var got string
+	out, err := relayOnce(t, func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		got = string(b)
+		w.WriteHeader(http.StatusAccepted)
+	}, `{"jsonrpc":"2.0","method":"notifications/x","params":["positional"]}`)
+	if err != nil || out != "" {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+	if got != `{"jsonrpc":"2.0","method":"notifications/x","params":["positional"]}` {
+		t.Fatalf("server got %q", got)
+	}
+}
+
+// Only a request is owed an answer: a refused response from the host is not answered
+// with an error the host would read as a reply to a request it never sent.
+func TestRelay_ARefusedResponseIsNotAnsweredWithAnError(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+	}, `{"jsonrpc":"2.0","id":5,"result":{}}`)
+	if err != nil || out != "" {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}

@@ -68,10 +68,10 @@ func (r *Relay) Run(ctx context.Context, in io.Reader, out io.Writer) error {
 	for {
 		line, err := reader.ReadBytes('\n')
 		if line = bytes.TrimSpace(line); len(line) > 0 {
+			// The fields are read only to route the message; one that does not fit them
+			// (positional params, say) is still forwarded verbatim, unrouted.
 			var msg message
-			if jerr := json.Unmarshal(line, &msg); jerr != nil {
-				return fmt.Errorf("malformed message from the MCP host: %w", jerr)
-			}
+			_ = json.Unmarshal(line, &msg)
 			if msg.Method == "initialize" {
 				// Every later request carries the version initialize settles, so it
 				// must be answered before anything else is sent.
@@ -229,9 +229,10 @@ func (r *Relay) emit(payload []byte, sent message) {
 	_, _ = r.out.Write(line.Bytes())
 }
 
-// fail answers a request with a JSON-RPC error. A notification has no one to answer.
+// fail answers a request with a JSON-RPC error. A notification, or the host's own
+// response to a server request, is owed no answer.
 func (r *Relay) fail(sent message, reason string) {
-	if len(sent.ID) == 0 {
+	if len(sent.ID) == 0 || sent.Method == "" {
 		return
 	}
 	payload, _ := json.Marshal(map[string]any{
