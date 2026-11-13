@@ -389,3 +389,14 @@ func TestRelay_AStringIDMatchesHoweverItIsEscaped(t *testing.T) {
 		t.Fatalf("Run = %v, wrote %q", err, out)
 	}
 }
+
+// A null id (a parse error's) is not the empty-string id a request may carry.
+func TestRelay_ANullIDDoesNotAnswerAnEmptyStringID(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":null,"result":{}}`)
+	}, `{"jsonrpc":"2.0","id":"","method":"tools/list"}`)
+	if err != nil || !strings.Contains(out, `"error"`) || strings.Contains(out, `"result"`) {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}

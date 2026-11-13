@@ -280,6 +280,11 @@ func isResponse(event []byte) bool {
 	return json.Unmarshal(event, &m) == nil && m.Method == "" && len(m.ID) > 0 && string(m.ID) != "null"
 }
 
+func isJSONString(raw json.RawMessage) bool {
+	trimmed := bytes.TrimSpace(raw)
+	return len(trimmed) > 0 && trimmed[0] == '"'
+}
+
 // answers reports whether event is the response to the request sent.
 func answers(event []byte, sent message) bool {
 	var m struct {
@@ -296,9 +301,10 @@ func answers(event []byte, sent message) bool {
 // matter ("a" and "\u0061" are one id), numbers by their literal text, so no precision is
 // lost to a float.
 func sameID(a, b json.RawMessage) bool {
-	var sa, sb string
-	if json.Unmarshal(a, &sa) == nil && json.Unmarshal(b, &sb) == nil {
-		return sa == sb
+	// Only a JSON string decodes as one: null would decode into "" too.
+	if isJSONString(a) && isJSONString(b) {
+		var sa, sb string
+		return json.Unmarshal(a, &sa) == nil && json.Unmarshal(b, &sb) == nil && sa == sb
 	}
 	var ca, cb bytes.Buffer
 	return json.Compact(&ca, a) == nil && json.Compact(&cb, b) == nil && ca.String() == cb.String()
