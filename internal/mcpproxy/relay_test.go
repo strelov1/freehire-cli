@@ -400,3 +400,14 @@ func TestRelay_ANullIDDoesNotAnswerAnEmptyStringID(t *testing.T) {
 		t.Fatalf("Run = %v, wrote %q", err, out)
 	}
 }
+
+// The stream path matches a string id by value too.
+func TestRelay_AStreamedStringIDMatchesHoweverItIsEscaped(t *testing.T) {
+	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "data: {\"jsonrpc\":\"2.0\",\"id\":\"\\u0061\",\"result\":{}}\n\n")
+	}, `{"jsonrpc":"2.0","id":"a","method":"tools/call","params":{}}`)
+	if err != nil || strings.Contains(out, `"error"`) || !strings.Contains(out, `"result"`) {
+		t.Fatalf("Run = %v, wrote %q", err, out)
+	}
+}
