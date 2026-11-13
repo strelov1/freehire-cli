@@ -383,7 +383,7 @@ func TestRelay_AStreamedResponseForAnotherIDIsDropped(t *testing.T) {
 func TestRelay_AStringIDMatchesHoweverItIsEscaped(t *testing.T) {
 	out, err := relayOnce(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":"a","result":{}}`)
+		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":"\u0061","result":{}}`)
 	}, `{"jsonrpc":"2.0","id":"a","method":"tools/list"}`)
 	if err != nil || strings.Contains(out, `"error"`) || !strings.Contains(out, `"result"`) {
 		t.Fatalf("Run = %v, wrote %q", err, out)

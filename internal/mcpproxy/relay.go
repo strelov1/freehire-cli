@@ -289,8 +289,19 @@ func answers(event []byte, sent message) bool {
 	if json.Unmarshal(event, &m) != nil || m.Method != "" || len(m.ID) == 0 {
 		return false
 	}
-	var a, b bytes.Buffer
-	return json.Compact(&a, m.ID) == nil && json.Compact(&b, sent.ID) == nil && a.String() == b.String()
+	return sameID(m.ID, sent.ID)
+}
+
+// sameID compares two JSON-RPC ids by value: strings decoded, so their escaping does not
+// matter ("a" and "\u0061" are one id), numbers by their literal text, so no precision is
+// lost to a float.
+func sameID(a, b json.RawMessage) bool {
+	var sa, sb string
+	if json.Unmarshal(a, &sa) == nil && json.Unmarshal(b, &sb) == nil {
+		return sa == sb
+	}
+	var ca, cb bytes.Buffer
+	return json.Compact(&ca, a) == nil && json.Compact(&cb, b) == nil && ca.String() == cb.String()
 }
 
 // emit writes one server message as a single line, and learns the negotiated protocol
