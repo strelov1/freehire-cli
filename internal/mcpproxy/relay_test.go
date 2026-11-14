@@ -411,3 +411,51 @@ func TestRelay_AStreamedStringIDMatchesHoweverItIsEscaped(t *testing.T) {
 		t.Fatalf("Run = %v, wrote %q", err, out)
 	}
 }
+
+// After initialize the header carries the negotiated version, even when the host's
+// request advertises another in _meta that the server would refuse with a 400.
+func TestRelay_TheNegotiatedVersionOutranksTheHostsPerRequestOne(t *testing.T) {
+	var mu sync.Mutex
+	var headers []string
+	out, err := relayOnce(t, func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		v := r.Header.Get("MCP-Protocol-Version")
+		mu.Lock()
+		headers = append(headers, v)
+		mu.Unlock()
+		if v != "" && v != "2025-11-25" {
+			http.Error(w, "Bad Request: Unsupported protocol version", http.StatusBadRequest)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(string(b), `"initialize"`) {
+			_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":"2025-11-25"}}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":2,"result":{}}`)
+	},
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-11-25"}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2099-01-01"}}}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "error") {
+		t.Fatalf("relay answered with an error: %s", out)
+	}
+	if len(headers) != 2 || headers[1] != "2025-11-25" {
+		t.Fatalf("headers = %q, want the second to be the negotiated 2025-11-25", headers)
+	}
+}
+
+// With nothing negotiated (a stateless request) the host's _meta version is used.
+func TestRelay_WithoutInitializeThePerRequestVersionIsSent(t *testing.T) {
+	var got string
+	_, err := relayOnce(t, func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("MCP-Protocol-Version")
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"jsonrpc":"2.0","id":2,"result":{}}`)
+	}, `{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28"}}}`)
+	if err != nil || got != "2026-07-28" {
+		t.Fatalf("err = %v, header = %q, want 2026-07-28", err, got)
+	}
+}
