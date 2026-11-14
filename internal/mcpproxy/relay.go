@@ -204,7 +204,10 @@ func (r *Relay) send(ctx context.Context, body []byte, msg message) (*http.Respo
 		endpoint = doorURL(endpoint)
 	}
 	r.mu.Unlock()
-	if v, ok := msg.Params.Meta[metaKeyProtocolVersion].(string); ok && v != "" {
+	// The header names the version negotiated at initialize (transport spec, "Protocol
+	// Version Header"); a host's per-request _meta version is the stateless alternative
+	// for when nothing was negotiated, and may name one the server does not speak.
+	if v, ok := msg.Params.Meta[metaKeyProtocolVersion].(string); ok && v != "" && version == "" {
 		version = v
 	}
 
