@@ -159,7 +159,10 @@ func TestRelay_AChallengedSignedInRequestGoesThroughTheSignedInDoor(t *testing.T
 		r.URL.Path = "/"
 		resp, err := http.DefaultClient.Do(mustProxy(t, r, hosted.URL))
 		if err != nil {
-			t.Fatal(err)
+			// srv.Close can cut the notification sent after initialize while it is still
+			// being proxied. t.Fatal belongs to the test goroutine, not a handler.
+			http.Error(w, err.Error(), http.StatusBadGateway)
+			return
 		}
 		defer resp.Body.Close()
 		for k, v := range resp.Header {
