@@ -13,7 +13,7 @@ applications (`save`, `stage`, `note`, `my`); persist the token at
 `~/.freehire/creds.json`; machine-readable `--json` output for agents.
 
 **Non-Goals (YAGNI):** shell-completion docs; goreleaser/homebrew;
-semantic-search flags; client-side stage validation (the API is the source of
+client-side stage validation (the API is the source of
 truth — the CLI only lists the vocabulary in help).
 
 ## Layout

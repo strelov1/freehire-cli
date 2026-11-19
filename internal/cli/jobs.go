@@ -27,16 +27,7 @@ The query understands four operators:
 Wrap the whole query in single quotes when it contains double quotes, or the
 shell strips them:
 
-  freehire search 'title:"product owner" -junior OR title:produktchef'
-
---semantic also matches postings that describe the query in other words:
-
-  freehire search "help kids learn to read" --semantic
-
-Use it for a need described in words. Leave it off for a job title
-("react developer") or a non-technical role: meaning-based matching covers
-technical roles only, and there plain keywords answer better. When it cannot
-run, the results are keyword-only and a warning says so.`,
+  freehire search 'title:"product owner" -junior OR title:produktchef'`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c, _, err := publicClient(cmd)
@@ -45,7 +36,6 @@ run, the results are keyword-only and a warning says so.`,
 			}
 			limit, _ := cmd.Flags().GetInt("limit")
 			offset, _ := cmd.Flags().GetInt("offset")
-			semantic, _ := cmd.Flags().GetBool("semantic")
 
 			facets, err := facetsFromFlags(cmd)
 			if err != nil {
@@ -58,19 +48,15 @@ run, the results are keyword-only and a warning says so.`,
 			}
 
 			res, err := c.Search(cmd.Context(), client.SearchParams{
-				Query:    strings.Join(args, " "),
-				Limit:    limit,
-				Offset:   offset,
-				Facets:   facets,
-				Semantic: semantic,
+				Query:  strings.Join(args, " "),
+				Limit:  limit,
+				Offset: offset,
+				Facets: facets,
 			})
 			if err != nil {
 				return err
 			}
 			warnIgnored(cmd, res.Ignored, res.IgnoredValues)
-			if res.Semantic == "unavailable" {
-				fmt.Fprintln(cmd.ErrOrStderr(), "warning: semantic search unavailable — showing keyword matches only")
-			}
 			if wantJSON(cmd) {
 				printJSON(cmd, res.Data)
 				return nil
@@ -84,7 +70,7 @@ run, the results are keyword-only and a warning says so.`,
 				fmt.Fprintf(out, "%-40s  %-20s  %-16s  %s\n",
 					trunc(r.Title, 40), trunc(r.Company, 20), trunc(r.Location, 16), r.PublicSlug)
 			}
-			// A semantic answer's total is only "at least", so it is not printed as a count.
+			// A lower-bound total is only "at least", so it is not printed as a count.
 			switch {
 			case !res.TotalIsLowerBound:
 				fmt.Fprintf(out, "\n%d of %d shown\n", len(rows), res.Total)
@@ -98,7 +84,6 @@ run, the results are keyword-only and a warning says so.`,
 	}
 	cmd.Flags().Int("limit", 20, "maximum results")
 	cmd.Flags().Int("offset", 0, "results offset for paging")
-	cmd.Flags().Bool("semantic", false, "also match postings that describe the query in other words (for a need described in words, not a job title)")
 	addFacetFlags(cmd)
 	cmd.Flags().StringArray("skills", nil, "filter by skill, e.g. go, react (repeatable)")
 	return cmd
