@@ -54,7 +54,7 @@ func TestSearch_SendsNoParamTheAPIDoesNotRead(t *testing.T) {
 		t.Fatalf("Search: %v", err)
 	}
 
-	for _, dead := range []string{"semantic_ratio", "include_description"} {
+	for _, dead := range []string{"semantic", "semantic_ratio", "include_description"} {
 		if got.Has(dead) {
 			t.Errorf("query still carries %s=%q", dead, got.Get(dead))
 		}
@@ -83,5 +83,20 @@ func TestFacetsAndCoverage_SurfaceIgnoredParams(t *testing.T) {
 	}
 	if len(coverage.Ignored) != 2 {
 		t.Errorf("Coverage ignored = %#v, want the warnings carried through", coverage.Ignored)
+	}
+}
+
+func TestSearch_SurfacesALowerBoundTotal(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"data":[],"meta":{"total":21,"total_is_lower_bound":true}}`))
+	}))
+	defer srv.Close()
+
+	page, err := New(srv.URL, "", srv.Client()).Search(context.Background(), SearchParams{Query: "go", Limit: 20})
+	if err != nil {
+		t.Fatalf("Search: %v", err)
+	}
+	if page.Total != 21 || !page.TotalIsLowerBound {
+		t.Errorf("total=%d lowerBound=%v, want 21 marked as a lower bound", page.Total, page.TotalIsLowerBound)
 	}
 }

@@ -82,10 +82,7 @@ type Page struct {
 	Total         int
 	Ignored       []IgnoredParam
 	IgnoredValues IgnoredValues
-	// Semantic is what became of SearchParams.Semantic: "applied", or "unavailable"
-	// when the API answered with keyword matches only. Empty when not asked.
-	Semantic string
-	// TotalIsLowerBound: Total is "at least this many" (a semantic answer has no count),
+	// TotalIsLowerBound: Total is "at least this many" (the API has no exact count),
 	// and exceeds the rows seen so far only when a next page exists.
 	TotalIsLowerBound bool
 }
@@ -97,8 +94,6 @@ type SearchParams struct {
 	Limit  int
 	Offset int
 	Facets url.Values
-	// Semantic also matches postings that describe the query in other words.
-	Semantic bool
 }
 
 // envelope is the shared API response wrapper: {data, meta, error}.
@@ -108,7 +103,6 @@ type envelope struct {
 		Total         int            `json:"total"`
 		IgnoredParams []IgnoredParam `json:"ignored_params"`
 		IgnoredValues IgnoredValues  `json:"ignored_values"`
-		Semantic      string         `json:"semantic"`
 		// TotalIsLowerBound is meta.total_is_lower_bound.
 		TotalIsLowerBound bool `json:"total_is_lower_bound"`
 	} `json:"meta"`
@@ -152,9 +146,6 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	// second was never read, and the API now reports unread params as warnings —
 	// so sending them would hand the user two they cannot act on.
 	q.Set("description_format", "markdown")
-	if p.Semantic {
-		q.Set("semantic", "true")
-	}
 	env, err := c.do(ctx, http.MethodGet, "/api/v1/agent/jobs/search?"+q.Encode(), nil)
 	if err != nil {
 		return Page{}, err
@@ -162,7 +153,7 @@ func (c *Client) Search(ctx context.Context, p SearchParams) (Page, error) {
 	return Page{
 		Data: env.Data, Total: env.Meta.Total,
 		Ignored: env.Meta.IgnoredParams, IgnoredValues: env.Meta.IgnoredValues,
-		Semantic: env.Meta.Semantic, TotalIsLowerBound: env.Meta.TotalIsLowerBound,
+		TotalIsLowerBound: env.Meta.TotalIsLowerBound,
 	}, nil
 }
 
